@@ -30,7 +30,8 @@ function startApp() {
     const hasPerson = state.slots.some((person) => person !== null);
     emptyEl.hidden = hasPerson;
     // 文字の幅を測って配置するため、描画の前に表示しておく
-    svg.hidden = !hasPerson;
+    // SVG要素には hidden プロパティがない(HTMLElementのみ)ため、属性を直接切り替える
+    svg.toggleAttribute('hidden', !hasPerson);
     renderTimeline(svg, state.slots, currentYear, timelineEl.clientWidth);
     renderResult(resultEl, state.slots, currentYear);
   };
