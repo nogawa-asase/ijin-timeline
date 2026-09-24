@@ -3,9 +3,10 @@
 ## 技術スタック
 
 - 開発環境: devcontainer
-- Node.js v24.11.0
-- TypeScript 5.x
-- パッケージマネージャー: npm
+- HTML / CSS / JavaScript のみ(ビルドツール・npmパッケージなし)
+- データ取得: Wikidata API(ブラウザから直接呼び出し)
+- 描画: SVG
+- 公開先: GitHub Pages(静的ファイルのみ)
 
 ## スペック駆動開発の基本原則
 
