@@ -13,7 +13,7 @@
 | HTML / CSS | HTML Living Standard | 画面の構造とスタイル |
 | JavaScript | ES2022(ES Modules) | アプリケーションのロジック |
 | Node.js | v24系(devcontainer同梱) | ユニットテストの実行のみ(組み込みテストランナー) |
-| Python 3 | 3.11系(devcontainer同梱) | ローカル開発サーバーのみ(`http.server`) |
+| Python 3 | 3系(devcontainerの `python` featureで導入) | ローカル開発サーバーのみ(`http.server`) |
 
 **選定理由**:
 - **JavaScript(ES Modules)**
@@ -22,7 +22,7 @@
   - 型はJSDocで記述し、エディタ(VS Code)の補完と型チェックの恩恵を受ける
 - **TypeScriptを使わない理由**: ブラウザが直接実行できず、ビルド工程とnpmパッケージが必要になるため
 - **Node.js(テストのみ)**: 組み込みの `node:test` と `node:assert` で、npmパッケージなしにユニットテストを実行できる。Node.js v24はES Modules構文を自動判別するため、`package.json` も不要
-- **Python 3(開発サーバーのみ)**: ES Modulesは `file://` では読み込めないため、ローカル確認用のHTTPサーバーが必要。`python3 -m http.server` はインストール不要で使える
+- **Python 3(開発サーバーのみ)**: ES Modulesは `file://` では読み込めないため、ローカル確認用のHTTPサーバーが必要。`python3 -m http.server` はPythonの標準機能で使える。ベースイメージのPythonは最小構成(`python3-minimal`)で `http.server` を含まないため、devcontainerの `python` featureで標準のPythonを入れる
 
 ### フレームワーク・ライブラリ
 
@@ -213,7 +213,7 @@ graph LR
 - インターネット接続(Wikidataへの通信が必要)
 
 **開発者側**:
-- devcontainer(Node.js v24系、Python 3.11系が入っていること)
+- devcontainer(`.devcontainer/devcontainer.json` の featureで Node.js、Python 3、GitHub CLI、Claude Code を導入)
 - 追加のインストールは不要
 
 ### パフォーマンス制約
