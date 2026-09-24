@@ -218,7 +218,7 @@ graph LR
 
 ### パフォーマンス制約
 - Wikidata APIの応答速度に依存する。混雑時に1秒の目標を超える可能性がある(PRDの今後の検討事項としてプロトタイプで検証する)
-- 1回の検索で `wbgetentities` に渡すIDは最大10件(APIの上限50件の範囲内)
+- 1回の検索で `wbgetentities` に渡すIDは最大20件(APIの上限50件の範囲内)
 
 ### セキュリティ制約
 - 通信先はWikidataのみ(CSPの `connect-src` で制限)

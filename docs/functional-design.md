@@ -366,7 +366,7 @@ sequenceDiagram
     Input->>Input: 0.3秒待つ(その間の入力で待ち直し)
     Input->>Input: 前の検索があれば中断
     Input->>Client: searchPeople("信長", currentYear, signal)
-    Client->>API: wbsearchentities(search=信長, language=ja, limit=10)
+    Client->>API: wbsearchentities(search=信長, language=ja, limit=20)
     API-->>Client: 候補ID一覧
     Client->>API: wbgetentities(ids=Q...|Q..., props=labels|descriptions|claims)
     API-->>Client: エンティティ一覧
@@ -383,7 +383,7 @@ sequenceDiagram
 **フロー説明**:
 1. 入力が止まってから0.3秒後に検索を開始する。入力が空(空白のみ)なら検索せず候補一覧を閉じる
 2. 新しい検索を始めるとき、実行中の古い検索は `AbortController` で中断する。古い応答が後から届いて候補を上書きすることを防ぐ
-3. `wbsearchentities` で最大10件のIDを取得し、`wbgetentities` で詳細を1回でまとめて取得する
+3. `wbsearchentities` で最大20件のIDを取得し、`wbgetentities` で詳細を1回でまとめて取得する(名字の項目などが上位を占めても、除外後に候補が残るようにするため)
 4. 人間でない・生年がないエンティティを除外し、検索結果の順番を保ったまま最大7件を表示する
 5. 候補を選ぶと入力欄に人物名が確定し、`onChange` で状態が更新される
 
@@ -454,7 +454,7 @@ GET https://www.wikidata.org/w/api.php
   &language=ja
   &uselang=ja
   &type=item
-  &limit=10
+  &limit=20
   &format=json
   &origin=*
 ```

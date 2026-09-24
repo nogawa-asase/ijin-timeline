@@ -72,6 +72,7 @@ describe('searchPeople', () => {
     assert.equal(searchUrl.origin, 'https://www.wikidata.org');
     assert.equal(searchUrl.searchParams.get('search'), '織田 信長');
     assert.equal(searchUrl.searchParams.get('language'), 'ja');
+    assert.equal(searchUrl.searchParams.get('limit'), '20');
     assert.equal(searchUrl.searchParams.get('origin'), '*');
     const entitiesUrl = new URL(globalThis.fetch.mock.calls[1].arguments[0]);
     assert.equal(entitiesUrl.searchParams.get('ids'), 'Q171411');

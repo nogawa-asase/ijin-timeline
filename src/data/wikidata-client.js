@@ -4,8 +4,9 @@ import { parsePerson } from './person-parser.js';
 
 const API_URL = 'https://www.wikidata.org/w/api.php';
 const TIMEOUT_MS = 10_000;
-// 人間でない・生年がない項目を除いた後でも候補が残るよう、表示件数より多めに検索する
-const SEARCH_LIMIT = 10;
+// 人間でない・生年がない項目を除いた後でも候補が残るよう、表示件数より多めに検索する。
+// 「織田」のように名字の項目が上位を占める語があるため、10件では候補が1件しか残らないことがある
+const SEARCH_LIMIT = 20;
 const MAX_CANDIDATES = 7;
 
 /** 通信失敗・タイムアウト・不正な応答を表すエラー */
