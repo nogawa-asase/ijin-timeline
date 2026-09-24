@@ -184,6 +184,21 @@ try {
 - スタイルはCSSのクラスで指定する。CSPのため `style` 属性を文字列で設定しない(`element.setAttribute('style', ...)` は不可)。SVGの位置・色は `x`、`fill` などの属性で指定する
 - URLのパラメータは `URLSearchParams` で組み立てる
 
+### アクセシビリティ
+
+- 新しいUI部品を作るときは、`docs/functional-design.md` の「UI設計 > アクセシビリティ」に定めたWAI-ARIAのパターン(`role`、`aria-live`、`aria-label` など)に従う
+- クリックできる要素は `<button>` など本来の要素で作り、`<div>` にクリックイベントを付けない(キーボードで操作できなくなるため)
+- 実装後、マウスを使わずTabキー・上下キー・Enter・Escだけで比較まで操作できることを確認する
+
+### CSS
+
+- **ファイル**: MVPでは `css/style.css` の1ファイル(分割の基準は `docs/repository-structure.md`)
+- **クラス名**: kebab-caseで、部品名を先頭に付ける(例: `.person-input`、`.person-input-clear`、`.timeline-axis`、`.result-text`)
+- **JavaScriptからの参照**: JavaScriptで要素を探すときもクラス名を使う。状態は `is-` で始まるクラスで表す(例: `.is-active`、`.is-loading`)
+- **色・サイズ**: ファイル先頭の `:root` にCSS変数としてまとめる(例: `--color-person-1: #0072B2;`)。人物の線の色は `docs/functional-design.md` のカラーコーディングに従う
+- **画面幅の切り替え**: 切り替え点は600pxの1つだけとし、スマホ幅(600px未満)を基本に書いて `@media (min-width: 600px)` でPC向けを上書きする
+- **単位**: 文字サイズは `rem`、余白とタップ対象の大きさは `px`(タップ対象は44px以上)
+
 ### パフォーマンス
 
 - 描画は状態が変わったときにまとめて行う。関数の中で何度もDOMを読み書きしない
@@ -280,9 +295,11 @@ feat(logic): 2人の生存期間の重なりを計算する処理を追加
 個人開発のため、PRは任意とする。PRを作る場合は以下のテンプレートを使う。
 
 **作成前のチェック**:
-- [ ] `node --test tests/` がすべて成功する
+- [ ] `node --test 'tests/**/*.test.js'` がすべて成功する
 - [ ] ブラウザで手動確認した(スマホ幅を含む)
 - [ ] 開発者ツールのコンソールにエラーが出ていない
+- [ ] 本ドキュメントのコーディング規約に沿っているかセルフレビューした
+- [ ] `implementation-validator` サブエージェントでスペックとの整合性を確認した
 
 **PRテンプレート**:
 ```markdown
@@ -310,19 +327,14 @@ feat(logic): 2人の生存期間の重なりを計算する処理を追加
 
 | 種類 | 対象 | 方法 | 目標 |
 |------|------|------|------|
-| ユニットテスト | `src/logic/`、`src/data/person-parser.js` | `node --test tests/` | 機能設計書のアルゴリズムA1〜A6の各分岐を最低1ケースずつ通す |
+| ユニットテスト | `src/logic/`、`src/data/person-parser.js` | `node --test 'tests/**/*.test.js'` | 機能設計書のアルゴリズムA1〜A6の各分岐を最低1ケースずつ通す |
 | 手動テスト | 画面全体(`src/ui/`、`src/app.js`) | ブラウザで操作 | `docs/manual-test-checklist.md` のすべての項目 |
 
 統合テスト・E2Eテストの自動化は行わない(`docs/architecture.md` 参照)。
 
-### ユニットテストで必ず確認するケース
+### ユニットテストで確認するケース
 
-- 紀元前の年(表記、紀元前と紀元後をまたぐ年数)
-- 精度が年代・世紀の年(表記、代表年)
-- 存命人物、没年不明の人物
-- 重なりあり・なし・0年・同年生まれ
-- Wikidataの値の選択(`preferred` ランク、`deprecated` の除外、`somevalue` / `novalue`)
-- 人間でない・生年がないエンティティの除外
+対象ケースの一覧は `docs/functional-design.md` の「テスト戦略 > ユニットテスト」を正とする。特に、紀元前をまたぐ年数計算と、Wikidataの値の選択(ランク・`somevalue` / `novalue`・`missing`)は必ずテストする。
 
 ### 手動テストのタイミング
 
@@ -333,6 +345,8 @@ feat(logic): 2人の生存期間の重なりを計算する処理を追加
 ## コードレビュー基準
 
 セルフレビューに加え、実装後は `implementation-validator` サブエージェント(Claude Code)でスペックとの整合性を確認する。
+
+**「目安」の数値の扱い**: 行の長さ(100文字)、関数の長さ(40行)、ファイルの長さ(300行)はツールで強制しない。超えている場合はレビューで `[推奨]` として指摘し、分割するかどうかをその場で判断する。
 
 ### レビューポイント
 
@@ -350,6 +364,7 @@ feat(logic): 2人の生存期間の重なりを計算する処理を追加
 - [ ] レイヤーの依存ルール(`docs/repository-structure.md`)を守っているか
 - [ ] ロジックレイヤーが純粋関数になっているか
 - [ ] 1ファイル300行以下か
+- [ ] 1関数40行以内か
 
 **パフォーマンス**:
 - [ ] 検索にデバウンスと中断があるか
@@ -393,7 +408,7 @@ devcontainerに含まれているため、追加のインストールは不要�
 ```bash
 # 1. リポジトリのクローン(devcontainerで開く)
 git clone [URL]
-cd ijin-no-jidai
+cd ijin-timeline
 
 # 2. 依存関係のインストール
 # 不要
@@ -403,7 +418,7 @@ python3 -m http.server 8000
 # ブラウザで http://localhost:8000/ を開く
 
 # 4. ユニットテストの実行
-node --test tests/
+node --test 'tests/**/*.test.js'
 ```
 
 **注意**: `index.html` をファイルとして直接開く(`file://`)と、ES Modulesが読み込めず動かない。必ず開発サーバー経由で開く。
@@ -411,7 +426,8 @@ node --test tests/
 ### 公開(デプロイ)
 
 1. GitHubのリポジトリ設定 → Pages で、公開元を「Deploy from a branch」「`main` / (root)」にする
-2. `main` にマージすると、数分以内に `https://[ユーザー名].github.io/ijin-no-jidai/` に反映される
+2. `main` にマージすると、数分以内に `https://nogawa-asase.github.io/ijin-timeline/` に反映される
+3. 公開後に不具合が見つかった場合は、原因のコミットを `git revert` して `main` にpushする(`docs/architecture.md` の「障害時の切り戻し」)
 
 ### 推奨開発ツール
 

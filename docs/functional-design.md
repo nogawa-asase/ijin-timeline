@@ -42,19 +42,13 @@ graph TB
     Client --> Wikidata
 ```
 
-**レイヤーの依存方向**: UIレイヤー → ロジックレイヤー / データレイヤー。ロジックレイヤーとデータレイヤーはDOMに触れない(純粋な関数のみ)。
+**レイヤーの依存方向**: UIレイヤー → ロジックレイヤー / データレイヤー。ロジックレイヤーとデータレイヤーはDOMに触れない。ロジックレイヤーは純粋関数のみで構成する(データレイヤーは通信を行うため純粋関数ではない)。
+
+**図の矢印について**: `PersonInput --> App` は、`app.js` から渡されたコールバック(`onChange`)を呼ぶデータの流れを表す。`person-input.js` が `app.js` を `import` するわけではない(`import` の依存ルールは `docs/repository-structure.md` を参照)。
 
 ## 技術スタック
 
-| 分類 | 技術 | 選定理由 |
-|------|------|----------|
-| 言語 | JavaScript(ES Modules) | ビルド不要でブラウザがそのまま読み込める |
-| マークアップ・スタイル | HTML / CSS | フレームワーク不要な規模の1ページ構成 |
-| 描画 | SVG | 画面幅に応じた拡大縮小が容易で、線・文字・点線を宣言的に描ける |
-| データ | Wikidata API(`wbsearchentities` / `wbgetentities`) | ほぼすべての偉人の生没年を取得でき、`origin=*` でブラウザから直接呼び出せる |
-| 公開 | GitHub Pages | 静的ファイルのみで無料公開できる |
-
-フレームワーク・npmパッケージ・ビルドツールは使用しない。
+HTML / CSS / JavaScript(ES Modules)、描画はSVG、データはWikidata API、公開はGitHub Pages。フレームワーク・npmパッケージ・ビルドツールは使用しない。技術の詳細と選定理由は `docs/architecture.md` を正とする。
 
 ## データモデル定義
 
@@ -83,7 +77,7 @@ JavaScriptのため、型はJSDocの `@typedef` で定義する。
  * @typedef {Object} Person
  * @property {string} id               WikidataのID(例: "Q171411")
  * @property {string} label            表示名(日本語ラベル。なければ英語ラベル、それもなければID)
- * @property {string} description      短い説明(日本語。なければ空文字)
+ * @property {string} description      短い説明(日本語。なければ空文字。英語の説明は子供には読みにくいため、labelと違い英語にはフォールバックしない)
  * @property {YearValue} birth         生年(必須。生年がない人物はPersonにならない)
  * @property {YearValue|null} death    没年(ない場合はnull)
  * @property {'deceased'|'living'|'unknown'} lifeStatus  没年の状態
@@ -146,7 +140,7 @@ erDiagram
 
 ## コンポーネント設計
 
-### wikidata-client.js(データレイヤー)
+### src/data/wikidata-client.js(データレイヤー)
 
 **責務**:
 - Wikidata APIへの問い合わせ(候補検索・詳細取得)
@@ -157,7 +151,7 @@ erDiagram
 ```javascript
 /**
  * 名前の一部から人物候補を検索する
- * @param {string} query  入力文字列(前後の空白は除去済み、1文字以上)
+ * @param {string} query  入力文字列(呼び出し側で前後の空白を除去し、100文字に切り詰め済み。1文字以上)
  * @param {AbortSignal} [signal]  前の検索を中断するためのシグナル
  * @returns {Promise<Person[]>}  最大7件。人間かつ生年を持つ人物のみ
  * @throws {WikidataError}  通信失敗・タイムアウト・不正な応答のとき
@@ -167,11 +161,12 @@ export async function searchPeople(query, signal) {}
 
 **依存関係**: `person-parser.js`、ブラウザの `fetch` / `AbortController`
 
-### person-parser.js(データレイヤー)
+### src/data/person-parser.js(データレイヤー)
 
 **責務**:
 - `wbgetentities` のエンティティ1件をPersonに変換する
 - 人間(P31にQ5を含む)でない、または生年(P569)がないエンティティを除外する(`null` を返す)
+- 削除済み・存在しない項目(エンティティに `missing` プロパティがある)も除外する(`null` を返す)
 - 複数の値から使う値を選ぶ(下記アルゴリズム参照)
 
 **インターフェース**:
@@ -194,7 +189,7 @@ export function parseYearValue(time, precision) {}
 
 **依存関係**: `years.js`
 
-### years.js(ロジックレイヤー)
+### src/logic/years.js(ロジックレイヤー)
 
 **責務**:
 - 歴史的な西暦年と、計算用の連続した数値(天文学的年)との相互変換
@@ -223,7 +218,7 @@ export function representativeYear(yearValue) {}
 
 **依存関係**: なし
 
-### comparison.js(ロジックレイヤー)
+### src/logic/comparison.js(ロジックレイヤー)
 
 **責務**:
 - 2人の生存期間から、重なり・年齢関係・空白期間を計算してComparisonを返す
@@ -241,11 +236,12 @@ export function comparePeople(a, b, currentYear) {}
 
 **依存関係**: `years.js`
 
-### person-input.js(UIレイヤー)
+### src/ui/person-input.js(UIレイヤー)
 
 **責務**:
 - 入力欄1つ分の表示と操作(入力、候補一覧、キーボード操作、クリア)
 - 入力の0.3秒デバウンスと、古い検索の中断
+- 検索語の整形(前後の空白を除去し、100文字を超える部分を切り詰める)
 - 検索中・0件・エラーの状態表示
 
 **インターフェース**:
@@ -262,7 +258,7 @@ export function createPersonInput(container, options) {}
 
 **依存関係**: `wikidata-client.js`、`years.js`
 
-### timeline-view.js(UIレイヤー)
+### src/ui/timeline-view.js(UIレイヤー)
 
 **責務**:
 - 選択済みの人物(1人以上)からSVGのタイムラインを描画する
@@ -281,7 +277,7 @@ export function renderTimeline(svg, people, currentYear, width) {}
 
 **依存関係**: `years.js`
 
-### result-view.js(UIレイヤー)
+### src/ui/result-view.js(UIレイヤー)
 
 **責務**:
 - 2人が選択されたとき、Comparisonを結果の文章にして表示する
@@ -299,7 +295,7 @@ export function renderResult(container, people, currentYear) {}
 
 **依存関係**: `comparison.js`、`years.js`
 
-### app.js(UIレイヤー)
+### src/app.js(UIレイヤー)
 
 **責務**:
 - AppStateの保持と更新
@@ -333,7 +329,7 @@ sequenceDiagram
     Parser-->>Client: Person または null
     Client-->>Input: Person[](最大7件)
     Input-->>User: 候補一覧を表示
-    User->>Input: 「織田信長(1534–1582)」を選択
+    User->>Input: 「織田信長(1534年–1582年)」を選択
     Input->>App: onChange(person)
     App->>App: slots[0] = person
     App-->>User: タイムライン・結果を再描画
@@ -434,7 +430,7 @@ GET https://www.wikidata.org/w/api.php
   ?action=wbgetentities
   &ids={ID1}|{ID2}|...
   &props=labels|descriptions|claims
-  &languages=ja|en
+  &languages=ja|en        # enは日本語ラベルがない人物の英語ラベル取得のため
   &format=json
   &origin=*
 ```
@@ -468,6 +464,7 @@ GET https://www.wikidata.org/w/api.php
 - レスポンスに `error` プロパティがある → 通信エラー
 - 10秒以内に応答がない → タイムアウト(通信エラーと同じ表示)
 - `wbsearchentities` の結果が0件 → 詳細取得を行わず「該当なし」
+- `wbgetentities` の一部のエンティティに `missing` がある → そのエンティティだけを候補から除外する(エラーにしない)
 
 ## アルゴリズム設計
 
@@ -477,11 +474,11 @@ GET https://www.wikidata.org/w/api.php
 
 1. ランクが `deprecated` の値を除外する
 2. `preferred` ランクの値があれば、その中の先頭を使う
-3. なければ残りの先頭を使う
+3. なければ残りのうち、Wikidataの応答の配列で先頭にある値を使う
 4. 選んだ値の `snaktype` が `value` 以外の場合:
-   - 生年 → 生年なしとして人物を除外する
+   - 生年 → 生年データなしとして人物を除外する
    - 没年が `somevalue`(不明な値)→ lifeStatus を `'unknown'` にする
-   - 没年が `novalue` → 没年なしとして扱う(存命判定へ)
+   - 没年が `novalue` → 没年データなしとして扱う(存命判定へ)
 
 ### A2: 年の読み取り
 
@@ -489,7 +486,7 @@ GET https://www.wikidata.org/w/api.php
 
 - 正規表現 `^([+-])(\d+)-` で符号と年を取り出す
 - `-` のとき負数にする(`-0551` → `-551` = 前551年)
-- 年が0になる場合は不正な値として `null` を返す(その人物は生年なしとして除外、没年なら没年なしとして扱う)
+- 年が0になる場合は不正な値として `null` を返す(その人物は生年データなしとして除外、没年なら没年データなしとして扱う)
 - 精度から `precision` を決める(9以上 → `'year'`、8 → `'decade'`、7以下 → `'century'`)
 - `'decade'` のときは10の倍数に切り下げる(1534 → 1530)
 
@@ -541,7 +538,7 @@ export function yearsBetween(fromYear, toYear) {
 | century, 紀元後 | `{century}世紀頃` | 6世紀頃 |
 | century, 紀元前 | `前{century}世紀頃` | 前6世紀頃 |
 
-候補一覧の生没年は、あいまいな年も上記の表記を使う。存命は `1960–`、没年不明は `1100–?` のように表示する。
+候補一覧の生没年は、あいまいな年も上記の表記を使う。存命は `(1960年–)`、没年不明は `(1100年–?)` のように表示する。
 例: `孔子(前551年–前479年)`、`雪舟(1420年–1506年)`
 
 ### A5: 2人の比較
@@ -613,6 +610,7 @@ if (overlapStart <= overlapEnd) {
 
 **ステップ3: 目盛り間隔**
 - 候補 `[1, 2, 5, 10, 20, 25, 50, 100, 200, 250, 500, 1000]` のうち、表示範囲内の目盛りが最大8本になる最小の間隔を選ぶ
+- 最大の候補(1000)でも8本を超える場合は1000を使い、8本を超えることを許容する
 - 目盛りは天文学的年が間隔の倍数になる位置に置き、ラベルは `formatAxisYear` で歴史的年に変換して表示する
 
 **ステップ4: 座標変換**
@@ -661,7 +659,12 @@ if (overlapStart <= overlapEnd) {
 - 検索中は一覧の位置に「検索中…」を表示する
 - 候補の各行は高さ44px以上
 
-**アクセシビリティ**: 入力欄と候補一覧はWAI-ARIAのcomboboxパターン(`role="combobox"`、`role="listbox"`、`role="option"`、`aria-activedescendant`)に従う
+**アクセシビリティ**(PRDの非機能要件「キーボード操作」「スクリーンリーダー」に対応):
+- 入力欄と候補一覧はWAI-ARIAのcomboboxパターン(`role="combobox"`、`role="listbox"`、`role="option"`、`aria-activedescendant`)に従う
+- 候補の件数・「該当する人物が見つかりませんでした」・通信エラーのメッセージは `aria-live="polite"` の領域に表示し、読み上げさせる
+- 比較結果の文章の領域は `aria-live="polite"` とし、結果が変わったら読み上げさせる
+- タイムラインのSVGは `role="img"` とし、`aria-label` に「織田信長 1534年〜1582年、徳川家康 1543年〜1616年のタイムライン」のような要約を設定する
+- クリアボタンは `<button>` 要素で作り、`aria-label="1人目をクリア"` のように対象がわかるラベルを付ける
 
 ### タイムラインの描画要素
 
@@ -669,12 +672,14 @@ if (overlapStart <= overlapEnd) {
 |------|------|
 | 人物の線 | 太さ6pxの横線。1人目は上段、2人目は下段 |
 | 人物名 | 線の上、線の左端に揃える |
-| 生年・没年 | 線の左端の左/右端の右に表示。狭くて重なる場合は線の下に表示 |
+| 生年・没年 | 線の左端の左/右端の右に表示。文字の幅(`getComputedTextLength()` で計測)+4pxが、線の端から描画領域の端までの余白より大きい場合は、線の下に端を揃えて表示 |
 | 重なり区間 | 重なる期間の全高に半透明の背景色(黄色系)を塗る |
 | 目盛り | 下部に目盛り線とラベル。縦の補助線を薄い灰色で引く |
 | 存命 | 線の右端(現在の年)を矢印の形にする。没年の位置に「存命」と表示 |
 | あいまいな年 | その端から線の長さの10%(最低20px)の区間を点線にする |
 | 没年不明 | 生年から仮の描画終了年までを点線で描き、右端に「没年不明」と表示 |
+
+**複数の表現が重なる場合**: 没年不明の人物は線全体が点線になるため、あいまいな年の端の点線は重ねて適用しない(生年があいまいな場合は、生年の表記「6世紀頃」だけで表す)。存命の矢印とあいまいな生年の点線は、両端で別々に適用する。
 
 ### カラーコーディング
 
@@ -724,7 +729,7 @@ if (overlapStart <= overlapEnd) {
 | タイムアウト(10秒) | 通信失敗と同じ | 同上 |
 | 検索の中断(新しい入力による) | 何もしない(エラーとして扱わない) | なし |
 | 生年の値が不正(年が0など) | その人物を候補から除外 | なし |
-| 没年の値が不正 | 没年なしとして扱う | 存命または「没年不明」 |
+| 没年の値が不正 | 没年データなしとして扱う | 存命または「没年不明」 |
 
 再試行は、利用者が文字を編集したときに自動で行われる(専用の再試行ボタンは設けない)。
 
@@ -732,13 +737,16 @@ if (overlapStart <= overlapEnd) {
 
 テストの実行方法(ツール)は `docs/architecture.md` で定義する。
 
-### ユニットテスト(DOMを使わない純粋な関数)
+### ユニットテスト(DOMを使わない関数)
+
+この一覧をユニットテストの対象ケースの正とする(`docs/development-guidelines.md` から参照される)。
+
 - `years.js`: 天文学的年の変換、`yearsBetween`(紀元前をまたぐケース)、表記(年・年代・世紀、紀元前・紀元後)、代表年
-- `person-parser.js`: 年の読み取り(紀元前、精度、0年)、ランクによる値の選択、`somevalue` / `novalue`、存命判定、ラベルのフォールバック、人間でない・生年なしの除外
+- `person-parser.js`: 年の読み取り(紀元前、精度、0年)、ランクによる値の選択、`somevalue` / `novalue`、存命判定、ラベルのフォールバック、人間でない・生年なし・`missing` の除外
 - `comparison.js`: 重なりあり・なし・判定不可、同年生まれ、重なり0年、存命人物を含む比較、あいまいな年を含む比較、紀元前の人物同士の比較
 
 ### 手動テスト(ブラウザでの動作確認)
 - PRDの受け入れ条件に沿ったチェックリストで確認する
-- PRDのKPIにある検証用20人(日本史10人・世界史10人、紀元前・存命を各1人以上)の生没年表示
+- PRDのKPIにある検証用20人の生没年表示が、Wikidataの値と一致すること(20人の条件はPRDの成功指標を参照)
 - iPhone(Safari)、Android(Chrome)、PC(Chrome / Edge / Safari / Firefox)での表示と操作
 - 通信エラー(ブラウザの開発者ツールでオフラインにする)時の表示

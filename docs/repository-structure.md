@@ -3,7 +3,7 @@
 ## プロジェクト構造
 
 ```
-ijin-no-jidai/
+ijin-timeline/
 ├── index.html                 # 唯一のページ(GitHub Pagesの入口)
 ├── .nojekyll                  # GitHub PagesのJekyll処理を無効化(ファイルをそのまま配信)
 ├── css/
@@ -31,8 +31,9 @@ ijin-no-jidai/
 ├── .claude/                   # Claude Codeの設定
 ├── .devcontainer/             # 開発環境の定義
 ├── CLAUDE.md
-├── README.md
-└── LICENSE
+├── README.md                  # プロジェクト概要、公開URL、開発の始め方
+├── LICENSE
+└── prompt.md                  # /add-feature でMVPを一括実装するときの指示文(作業用)
 ```
 
 **ポイント**:
@@ -48,6 +49,9 @@ ijin-no-jidai/
 **配置ファイル**:
 - `index.html`: 画面の骨組み、CSP、`<script type="module" src="src/app.js">` の読み込み
 - `.nojekyll`: 空ファイル。GitHub PagesのJekyll処理を無効にし、配信を速く・確実にする
+- `README.md`: プロジェクトの概要、公開URL(`https://nogawa-asase.github.io/ijin-timeline/`)、開発の始め方(`docs/development-guidelines.md` の開発環境セットアップへのリンク)を書く
+
+**Gitで管理しないファイル**: `使い方メモ.txt` は開発者個人の手順メモのため、コミットしない
 
 ### css/
 
@@ -82,6 +86,7 @@ ijin-no-jidai/
 **命名規則**:
 - 入力を受け付ける部品: `[対象]-input.js`
 - 表示する部品: `[対象]-view.js`
+- 画面の外とのやり取りをする部品: `[対象]-[動作].js`(例: URLと状態の相互変換 `url-state.js`、画像の書き出し `image-export.js`)
 
 **依存関係**:
 - 依存可能: `src/logic/`、`src/data/`
@@ -144,6 +149,8 @@ tests/unit/
 
 **役割**: テストで使うWikidataの応答データ(実際の応答から必要な項目だけを残したJSON)
 
+PRDのKPIにある検証用20人のうち、ユニットテストに必要な最小限の人物だけを置く。20人全体の一覧と確認手順は `docs/manual-test-checklist.md` にまとめる。
+
 **構造**:
 ```
 tests/fixtures/
@@ -158,7 +165,7 @@ tests/fixtures/
 
 **テストの実行**:
 ```bash
-node --test tests/
+node --test 'tests/**/*.test.js'
 ```
 
 統合テスト・E2Eテストのディレクトリは作らない(`docs/architecture.md` のテスト戦略を参照)。
@@ -229,6 +236,8 @@ import { formatYearValue } from '../logic/years';
 
 ## 依存関係のルール
 
+レイヤーの考え方と各レイヤーの責務は `docs/architecture.md` を正とする。ここでは、それをディレクトリ・ファイル単位の `import` のルールに当てはめたものを定める。ルールが守られているかは、コードレビュー(`docs/development-guidelines.md` のコードレビュー基準、`implementation-validator` サブエージェント)で確認する。
+
 ### レイヤー間の依存
 
 ```
@@ -260,7 +269,9 @@ src/data/  →  src/logic/
 | 時代区分の表示(P1) | 時代区分のデータを `src/logic/eras.js` に定数として置き、描画は `timeline-view.js` に追加 |
 | 人物の詳細表示(P1) | `src/ui/person-detail-view.js` |
 | 出来事の表示(P2) | 取得は `src/data/`、描画は `timeline-view.js` に追加 |
+| 同時代の有名人の提案(P2) | 提案する人物の一覧(日本史・世界史の有名人)を `src/logic/famous-people.js` に定数として置き、提案の表示は `src/ui/suggestion-view.js` |
 | 画像として保存(P2) | `src/ui/image-export.js` |
+| 人物の肖像画表示(P2) | 画像の取り出しは `person-parser.js` に追加(Wikidataの画像プロパティP18)、描画は `timeline-view.js` に追加 |
 
 ### ファイルサイズの管理
 
@@ -284,6 +295,8 @@ src/data/  →  src/logic/
 
 **命名規則**: `20260924-add-person-input` 形式
 
+**Gitでの扱い**: 作業の履歴として残すため、コミットする(`.gitignore` で除外しない)
+
 ### .claude/(Claude Code設定)
 
 **構造**:
@@ -299,9 +312,14 @@ src/data/  →  src/logic/
 
 ### .gitignore
 
-- `.DS_Store`
-- `*.log`
-- `.env`
+テンプレートから引き継いだ `.gitignore` を使う。主な除外対象:
+- OS・エディタのファイル: `.DS_Store`、`Thumbs.db`、`.vscode/`、`.idea/`
+- ログ・一時ファイル: `*.log`、`tmp/`
+- 環境変数: `.env`
+- Claude Codeの個人設定: `.claude/settings.local.json`
+- テンプレート由来で本構成では生成されないもの: `node_modules/`、`dist/`、`coverage/` など
+
+`.steering/` は除外しない(作業の履歴としてコミットする)。
 
 ## テンプレートから削除するファイル
 
@@ -315,3 +333,6 @@ src/data/  →  src/logic/
 | `eslint.config.js`、`.prettierrc`、`.prettierignore` | リンター・フォーマッターを導入しない |
 | `.husky/` | Gitフックを使わない(npmが必要) |
 | `src/example.ts`、`src/example.test.ts` | テンプレートのサンプル |
+| `mvp-log.json` | テンプレートに含まれていた別プロダクト(TaskCLI)の実行ログ |
+
+あわせて、`.gitignore` のうち本構成で使わない項目(`node_modules/`、`*.tsbuildinfo` など)も整理する。
