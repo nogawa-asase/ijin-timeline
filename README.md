@@ -1,32 +1,51 @@
-# claude-code-book-chapter8
+# 偉人の時代
 
-本リポジトリは技術評論社より発行されている[「実践Claude Code入門 - 現場で活用するためのAIコーディングの思考法」](https://www.amazon.co.jp/dp/4297153548)のサンプルコードを管理するGitHubリポジトリです。
+偉人が「同じ時代を生きていたか」が一目でわかるタイムライン。
 
-リポジトリ内のコード・プロンプトに関する詳細な解説は、書籍をご覧ください。
+2人の偉人の名前を入力して候補から選ぶだけで、生存期間を西暦の横軸上に線で描き、重なっていた期間と年齢関係を文章で表示します。人物のデータは [Wikidata](https://www.wikidata.org/) から取得します。
 
-書籍の内容に関するご質問、不備のご指摘については以下のリポジトリのイシューよりお願いいたします。
+- 公開URL: https://nogawa-asase.github.io/ijin-timeline/
+- 登録・インストール不要。スマホ・PCのブラウザで動きます
 
-https://github.com/GenerativeAgents/claude-code-book
+## 構成
 
-## 注意事項
+HTML / CSS / JavaScript(ES Modules)のみで作られた静的Webページです。ビルドツール・npmパッケージは使用していません。
 
-本リポジトリの内容は読者からのフィードバックを受けて、より性能の良いプロンプトに変更されることがあります。差分は随時書籍に反映されますが、お手元の版との差分があることをご承知おきください。
-
-## 使い方
-
-### 1. リポジトリのクローン
-
-```bash
-git clone [このリポジトリ] claude-code-book-chapter8
-cd claude-code-book-chapter8
+```
+index.html        唯一のページ
+css/style.css     スタイル
+src/app.js        エントリーポイント
+src/ui/           UIレイヤー(入力欄・タイムライン・結果の文章)
+src/logic/        ロジックレイヤー(年の計算・表記、比較)
+src/data/         データレイヤー(Wikidataからの取得と変換)
+tests/            ユニットテスト(Node.js組み込みのテストランナー)
+docs/             設計ドキュメント
 ```
 
-### 2. Dev Container経由で開く
+## 開発の始め方
 
-Visual Studio Codeで「Reopen in Container」を選択すると、自動的に次のように環境構築が行われます。
+devcontainerで開けば、追加のインストールは不要です。
 
-- Node.js LTS環境の構築
-- npm installの実行
-- Claude Codeの最新版インストール
+```bash
+# ローカルで確認(ES Modulesは file:// では動かないため、HTTPサーバー経由で開く)
+python3 -m http.server 8000
+# → http://localhost:8000/
 
-※ Dev Containerを利用する際は、事前にDockerのインストールが必要です。
+# ユニットテスト
+node --test 'tests/**/*.test.js'
+```
+
+詳しくは [開発ガイドライン](docs/development-guidelines.md) の「開発環境セットアップ」を参照してください。手動テストの手順は [手動テストチェックリスト](docs/manual-test-checklist.md) にあります。
+
+## ドキュメント
+
+- [プロダクト要求定義書](docs/product-requirements.md)
+- [機能設計書](docs/functional-design.md)
+- [技術仕様書](docs/architecture.md)
+- [リポジトリ構造定義書](docs/repository-structure.md)
+- [開発ガイドライン](docs/development-guidelines.md)
+- [用語集](docs/glossary.md)
+
+## ライセンス
+
+ソースコードは [MIT License](LICENSE) です。人物データは Wikidata(CC0)に由来します。

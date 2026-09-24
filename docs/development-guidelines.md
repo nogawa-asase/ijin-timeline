@@ -163,7 +163,7 @@ export class WikidataError extends Error {
 ```javascript
 // src/ui/person-input.js
 try {
-  const people = await searchPeople(query, controller.signal);
+  const people = await searchPeople(query, currentYear, controller.signal);
   showCandidates(people);
 } catch (error) {
   if (error.name === 'AbortError') {

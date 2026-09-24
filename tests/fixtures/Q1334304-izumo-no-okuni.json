@@ -1,0 +1,56 @@
+{
+  "id": "Q1334304",
+  "labels": {
+    "ja": {
+      "value": "出雲阿国"
+    },
+    "en": {
+      "value": "Izumo no Okuni"
+    }
+  },
+  "descriptions": {
+    "en": {
+      "value": "Japanese actor and dancer"
+    },
+    "ja": {
+      "value": "日本の安土桃山時代の女性芸能者"
+    }
+  },
+  "claims": {
+    "P31": [
+      {
+        "mainsnak": {
+          "snaktype": "value",
+          "datavalue": {
+            "value": {
+              "id": "Q5"
+            }
+          }
+        },
+        "rank": "normal"
+      }
+    ],
+    "P569": [
+      {
+        "mainsnak": {
+          "snaktype": "value",
+          "datavalue": {
+            "value": {
+              "time": "+1572-01-01T00:00:00Z",
+              "precision": 9
+            }
+          }
+        },
+        "rank": "normal"
+      }
+    ],
+    "P570": [
+      {
+        "mainsnak": {
+          "snaktype": "somevalue"
+        },
+        "rank": "normal"
+      }
+    ]
+  }
+}

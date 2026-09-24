@@ -1,25 +1,14 @@
 # Temporary files
 tmp/
 
-# Node.js
-node_modules/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# Build outputs
-dist/
-build/
-*.tsbuildinfo
+# Logs
+logs/
+*.log
 
 # Environment variables
 .env
 .env.local
 .env.*.local
-
-# Logs
-logs/
-*.log
 
 # OS files
 .DS_Store
@@ -32,11 +21,11 @@ Thumbs.db
 *.swo
 *~
 
-# Testing
-coverage/
-.nyc_output/
-
-# Lock files (keep package-lock.json for consistency)
-# yarn.lock
-
+# Claude Code
 .claude/settings.local.json
+
+# 開発者個人の手順メモ(docs/repository-structure.md 参照)
+使い方メモ.txt
+
+# Claude Code の自動実行ログ(cat prompt.md | claude -p ... | tee output.jsonl)
+output.jsonl

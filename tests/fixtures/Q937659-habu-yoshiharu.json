@@ -1,0 +1,51 @@
+{
+  "id": "Q937659",
+  "labels": {
+    "ja": {
+      "value": "羽生善治"
+    },
+    "en": {
+      "value": "Yoshiharu Habu"
+    },
+    "mul": {
+      "value": "Yoshiharu Habu"
+    }
+  },
+  "descriptions": {
+    "en": {
+      "value": "Japanese shogi and chess player"
+    },
+    "ja": {
+      "value": "日本の将棋棋士"
+    }
+  },
+  "claims": {
+    "P31": [
+      {
+        "mainsnak": {
+          "snaktype": "value",
+          "datavalue": {
+            "value": {
+              "id": "Q5"
+            }
+          }
+        },
+        "rank": "normal"
+      }
+    ],
+    "P569": [
+      {
+        "mainsnak": {
+          "snaktype": "value",
+          "datavalue": {
+            "value": {
+              "time": "+1970-09-27T00:00:00Z",
+              "precision": 11
+            }
+          }
+        },
+        "rank": "normal"
+      }
+    ]
+  }
+}

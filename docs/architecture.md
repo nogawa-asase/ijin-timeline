@@ -57,7 +57,8 @@
 │  timeline-view.js / result-view.js       │
 ├─────────────────────────────────────────┤
 │ ロジックレイヤー                           │ ← 年の計算・表記、2人の比較(純粋な関数)
-│  years.js / comparison.js                │
+│  years.js / comparison.js /              │
+│  timeline-scale.js                       │
 ├─────────────────────────────────────────┤
 │ データレイヤー                             │ ← Wikidataからの取得とPersonへの変換
 │  wikidata-client.js / person-parser.js   │
@@ -136,8 +137,8 @@ graph LR
 | 1回の検索での通信 | 2リクエスト | 候補検索1回+詳細取得1回(機能設計書のUC1・API設計) | 開発者ツールのネットワークタブで、1回の入力に対するWikidataへのリクエスト数を数える |
 
 ### 実現方法
-- ビルドなしでも読み込みが速いよう、JavaScriptファイルは機能設計書の8ファイル程度に留める
-- `wbgetentities` の `props` を `labels|descriptions|claims`、`languages` を `ja|en` に絞り、不要なデータを取得しない
+- ビルドなしでも読み込みが速いよう、JavaScriptファイルは機能設計書の9ファイル程度に留める
+- `wbgetentities` の `props` を `labels|descriptions|claims`、`languages` を `ja|mul|en` に絞り、不要なデータを取得しない
 - 古い検索は `AbortController` で中断し、無駄な通信と描画をしない
 
 ## セキュリティアーキテクチャ
@@ -187,7 +188,7 @@ graph LR
 ### ユニットテスト
 - **フレームワーク**: Node.js組み込みの `node:test` と `node:assert/strict`
 - **実行コマンド**: `node --test 'tests/**/*.test.js'`
-- **対象**: `years.js`、`comparison.js`、`person-parser.js`(DOMに依存しない関数すべて)
+- **対象**: `years.js`、`comparison.js`、`timeline-scale.js`、`person-parser.js`、`wikidata-client.js`(`fetch` を差し替えて確認)
 - **テストデータ**: Wikidataの実際の応答を元にした最小限のJSONを `tests/fixtures/` に置く(織田信長、孔子、存命人物、年代・世紀精度の人物など)
 - **カバレッジ目標**: 機能設計書のアルゴリズム A1〜A6 の各分岐を最低1ケースずつ通す。カバレッジ計測ツールは導入しない
 
@@ -237,4 +238,4 @@ graph LR
 | Node.js | 開発時(テストのみ) | devcontainerのバージョンに従う。`node:test` の基本機能のみを使う |
 | Python 3 | 開発時(サーバーのみ) | devcontainerのバージョンに従う |
 
-`package.json` は作成しない。テンプレートから引き継いだツール設定ファイルは使用せず、MVPの実装完了後にまとめて削除する(対象ファイルの一覧は `docs/repository-structure.md` の「テンプレートから削除するファイル」を正とする)。
+`package.json` は作成しない。テンプレートから引き継いだツール設定ファイルは、MVPの実装完了時に削除した。

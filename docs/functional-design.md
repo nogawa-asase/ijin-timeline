@@ -19,6 +19,7 @@ graph TB
         end
         subgraph Logic[ロジックレイヤー]
             Comparison[comparison.js<br/>重なり・年齢関係の計算]
+            Scale[timeline-scale.js<br/>表示範囲・目盛りの計算]
             Years[years.js<br/>年の変換・表記]
         end
         subgraph Data[データレイヤー]
@@ -35,7 +36,8 @@ graph TB
     App --> TimelineView
     App --> ResultView
     ResultView --> Comparison
-    TimelineView --> Years
+    TimelineView --> Scale
+    Scale --> Comparison
     Comparison --> Years
     Client --> Parser
     Parser --> Years
@@ -76,7 +78,7 @@ JavaScriptのため、型はJSDocの `@typedef` で定義する。
 /**
  * @typedef {Object} Person
  * @property {string} id               WikidataのID(例: "Q171411")
- * @property {string} label            表示名(日本語ラベル。なければ英語ラベル、それもなければID)
+ * @property {string} label            表示名(日本語ラベル。なければ全言語共通ラベル(mul)、英語ラベル、IDの順)
  * @property {string} description      短い説明(日本語。なければ空文字。英語の説明は子供には読みにくいため、labelと違い英語にはフォールバックしない)
  * @property {YearValue} birth         生年(必須。生年がない人物はPersonにならない)
  * @property {YearValue|null} death    没年(ない場合はnull)
@@ -116,16 +118,22 @@ JavaScriptのため、型はJSDocの `@typedef` で定義する。
 /**
  * @typedef {Object} Comparison
  * @property {'overlap'|'gap'|'undetermined'} kind  重なりあり / 重なりなし / 判定不可
- * @property {number} [overlapStart]  重なり開始年(kind='overlap'のとき)
- * @property {number} [overlapEnd]    重なり終了年(kind='overlap'のとき)
- * @property {number} [overlapYears]  重なり年数(kind='overlap'のとき)
  * @property {Person} [elder]         先に生まれた人物
  * @property {Person} [younger]       後に生まれた人物
+ * @property {YearValue} [overlapStart]  重なり開始年(youngerの生年。kind='overlap'のとき)
+ * @property {YearValue} [overlapEnd]    重なり終了年(先に亡くなった人物の没年。isOngoingのときは現在の年)
+ * @property {number} [overlapStartAstroYear]  重なり開始年の天文学的年(描画用)
+ * @property {number} [overlapEndAstroYear]    重なり終了年の天文学的年(描画用)
+ * @property {boolean} [isOngoing]    2人とも存命で、重なりが現在まで続いているか
+ * @property {number} [overlapYears]  重なり年数(kind='overlap'のとき)
  * @property {number} [ageAtBirth]    youngerが生まれたときのelderの年齢(kind='overlap'のとき)
  * @property {number} [gapYears]      elderの没年からyoungerの生年までの年数(kind='gap'のとき)
+ * @property {Person[]} [unknownPeople]  没年不明の人物(kind='undetermined'のとき)
  * @property {boolean} approximate    あいまいな年を含むかどうか
  */
 ```
+
+重なり年を `YearValue` で持つのは、文章で「1530年代」のような精度付きの表記をするため。描画では天文学的年を使う。
 
 ### データの関係
 
@@ -152,11 +160,12 @@ erDiagram
 /**
  * 名前の一部から人物候補を検索する
  * @param {string} query  入力文字列(呼び出し側で前後の空白を除去し、100文字に切り詰め済み。1文字以上)
+ * @param {number} currentYear  存命判定に使う現在の年(データレイヤーで現在時刻を取得しないため引数で受け取る)
  * @param {AbortSignal} [signal]  前の検索を中断するためのシグナル
  * @returns {Promise<Person[]>}  最大7件。人間かつ生年を持つ人物のみ
  * @throws {WikidataError}  通信失敗・タイムアウト・不正な応答のとき
  */
-export async function searchPeople(query, signal) {}
+export async function searchPeople(query, currentYear, signal) {}
 ```
 
 **依存関係**: `person-parser.js`、ブラウザの `fetch` / `AbortController`
@@ -214,6 +223,9 @@ export function formatAxisYear(year) {}
 
 /** 描画・計算に使う代表年(天文学的年)を返す */
 export function representativeYear(yearValue) {}
+
+/** 生没年の表記(候補一覧用)。例: "1534年–1582年"、存命 "1960年–"、没年不明 "1100年–?" */
+export function formatLifespan(birth, death, lifeStatus) {}
 ```
 
 **依存関係**: なし
@@ -232,9 +244,37 @@ export function representativeYear(yearValue) {}
  * @returns {Comparison}
  */
 export function comparePeople(a, b, currentYear) {}
+
+/** 生存期間の天文学的年 { startAstroYear, endAstroYear }(没年不明は endAstroYear が null) */
+export function lifespanOf(person, currentYear) {}
 ```
 
 **依存関係**: `years.js`
+
+### src/logic/timeline-scale.js(ロジックレイヤー)
+
+**責務**:
+- タイムラインの表示範囲・目盛り間隔・目盛り一覧の計算(アルゴリズムA6)
+- 描画用の期間の決定(没年不明は仮の描画終了年を使う)
+
+描画(`timeline-view.js`)から計算を切り離し、A6をユニットテストできるようにするためロジックレイヤーに置く。
+
+**インターフェース**:
+```javascript
+/** 描画用の期間 { startAstroYear, endAstroYear, isTentativeEnd } */
+export function drawSpanOf(person, currentYear) {}
+
+/** 表示範囲 { rangeStart, rangeEnd }(天文学的年) */
+export function computeTimeRange(spans) {}
+
+/** 目盛りの間隔(年) */
+export function chooseTickStep(range) {}
+
+/** 目盛りの一覧 [{ astroYear, label }] */
+export function computeTicks(range) {}
+```
+
+**依存関係**: `comparison.js`、`years.js`
 
 ### src/ui/person-input.js(UIレイヤー)
 
@@ -249,7 +289,10 @@ export function comparePeople(a, b, currentYear) {}
 /**
  * @param {HTMLElement} container  入力欄を描画する要素
  * @param {Object} options
+ * @param {string} options.label  例: "1人目"。aria-label(「1人目の名前」「1人目をクリア」)に使う
  * @param {string} options.placeholder  例: "1人目の名前"
+ * @param {number} options.slotNumber  入力欄の番号(1始まり)。要素のIDと色の区別に使う
+ * @param {number} options.currentYear  候補の存命判定に使う現在の年
  * @param {(person: Person|null) => void} options.onChange  選択・クリア時に呼ばれる
  * @returns {{ setPerson: (person: Person|null) => void }}  P1のURL共有で外から値を設定するため
  */
@@ -267,15 +310,17 @@ export function createPersonInput(container, options) {}
 **インターフェース**:
 ```javascript
 /**
- * @param {SVGSVGElement} svg
- * @param {Person[]} people  選択済みの人物(nullを除いたもの)
+ * @param {SVGSVGElement} svg  表示された状態で渡す(文字の幅を測るため)
+ * @param {(Person|null)[]} slots  AppState.slots(未選択はnull)。欄の番号で線の色を決める
  * @param {number} currentYear
  * @param {number} width  描画幅(px)。コンテナの幅から算出
  */
-export function renderTimeline(svg, people, currentYear, width) {}
+export function renderTimeline(svg, slots, currentYear, width) {}
 ```
 
-**依存関係**: `years.js`
+`slots` をそのまま受け取るのは、2人目だけを選んだときも2人目の色(オレンジ)で描くため。
+
+**依存関係**: `timeline-scale.js`、`comparison.js`(重なり区間)、`years.js`、内部モジュール `src/ui/timeline/person-row.js`(人物の行の描画)・`src/ui/timeline/svg.js`(SVG要素の作成)
 
 ### src/ui/result-view.js(UIレイヤー)
 
@@ -287,10 +332,10 @@ export function renderTimeline(svg, people, currentYear, width) {}
 ```javascript
 /**
  * @param {HTMLElement} container
- * @param {Person[]} people
+ * @param {(Person|null)[]} slots  AppState.slots(未選択はnull)
  * @param {number} currentYear
  */
-export function renderResult(container, people, currentYear) {}
+export function renderResult(container, slots, currentYear) {}
 ```
 
 **依存関係**: `comparison.js`、`years.js`
@@ -320,7 +365,7 @@ sequenceDiagram
     User->>Input: 「信長」と入力
     Input->>Input: 0.3秒待つ(その間の入力で待ち直し)
     Input->>Input: 前の検索があれば中断
-    Input->>Client: searchPeople("信長", signal)
+    Input->>Client: searchPeople("信長", currentYear, signal)
     Client->>API: wbsearchentities(search=信長, language=ja, limit=10)
     API-->>Client: 候補ID一覧
     Client->>API: wbgetentities(ids=Q...|Q..., props=labels|descriptions|claims)
@@ -351,9 +396,9 @@ sequenceDiagram
     participant Result as result-view
     participant Comp as comparison
 
-    App->>Timeline: renderTimeline(svg, people, currentYear, width)
+    App->>Timeline: renderTimeline(svg, slots, currentYear, width)
     Timeline-->>App: SVGを描画
-    App->>Result: renderResult(container, people, currentYear)
+    App->>Result: renderResult(container, slots, currentYear)
     alt 2人選択済み
         Result->>Comp: comparePeople(a, b, currentYear)
         Comp-->>Result: Comparison
@@ -430,7 +475,7 @@ GET https://www.wikidata.org/w/api.php
   ?action=wbgetentities
   &ids={ID1}|{ID2}|...
   &props=labels|descriptions|claims
-  &languages=ja|en        # enは日本語ラベルがない人物の英語ラベル取得のため
+  &languages=ja|mul|en    # mul(全言語共通ラベル)・enは日本語ラベルがない人物の表示名のため
   &format=json
   &origin=*
 ```
@@ -488,7 +533,7 @@ GET https://www.wikidata.org/w/api.php
 - `-` のとき負数にする(`-0551` → `-551` = 前551年)
 - 年が0になる場合は不正な値として `null` を返す(その人物は生年データなしとして除外、没年なら没年データなしとして扱う)
 - 精度から `precision` を決める(9以上 → `'year'`、8 → `'decade'`、7以下 → `'century'`)
-- `'decade'` のときは10の倍数に切り下げる(1534 → 1530)
+- `'decade'` のときは絶対値が小さい側の10の倍数に切り捨てる(1534 → 1530、前551 → 前550)。前1〜前9年の年代は切り捨てると0年になるため、`'century'` として扱う
 
 ### A3: 年の変換と年数の計算
 
@@ -584,9 +629,10 @@ if (overlapStart <= overlapEnd) {
 | 重なりあり、ageAtBirth = 0 | 続けて `2人は同じ年に生まれました` |
 | 重なりあり、youngerが存命かつelderも存命 | 終了年の部分を `{開始年}から現在までの約{overlapYears}年間、同じ時代を生きています` にする |
 | 重なりなし | `{elder}が亡くなってから約{gapYears}年後に、{younger}が生まれました` |
-| 重なりなし、gapYears = 0 | `{elder}が亡くなった年に、{younger}が生まれました` |
-| 判定不可 | `{没年不明の人物}の没年が不明なため、同じ時代かどうかを判定できません` |
+| 判定不可 | `{没年不明の人物}の没年が不明なため、同じ時代かどうかを判定できません`(2人とも没年不明なら「AとBの没年が不明なため…」) |
 | approximate = true | 最後に `※生没年があいまいな人物を含むため、目安です` を添える |
+
+先の人物が亡くなった年に後の人物が生まれた場合は、`overlapStart <= overlapEnd` を満たすため「重なりあり、overlapYears = 0」になる(例: ガリレオ・ガリレイ(1564–1642)とアイザック・ニュートン(1642–1727))。そのため「重なりなし」の `gapYears` は常に1以上になる。
 
 年は A4 の表記(紀元前は「前○年」)で表示する。存命の場合の「現在」は `currentYear`(閲覧時の年)。
 
@@ -611,7 +657,7 @@ if (overlapStart <= overlapEnd) {
 **ステップ3: 目盛り間隔**
 - 候補 `[1, 2, 5, 10, 20, 25, 50, 100, 200, 250, 500, 1000]` のうち、表示範囲内の目盛りが最大8本になる最小の間隔を選ぶ
 - 最大の候補(1000)でも8本を超える場合は1000を使い、8本を超えることを許容する
-- 目盛りは天文学的年が間隔の倍数になる位置に置き、ラベルは `formatAxisYear` で歴史的年に変換して表示する
+- 目盛りは歴史的年が間隔の倍数になる位置に置き(0年は飛ばす)、ラベルは `formatAxisYear` で表示する。天文学的年の倍数に置くと、紀元前のラベルが「前501」「前1」のように半端になるため
 
 **ステップ4: 座標変換**
 - `x = marginLeft + (astroYear - rangeStart) / (rangeEnd - rangeStart) * plotWidth`

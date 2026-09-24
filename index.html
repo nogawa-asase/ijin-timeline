@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta http-equiv="Content-Security-Policy"
+          content="default-src 'self'; connect-src https://www.wikidata.org; img-src 'self' data:; style-src 'self'; script-src 'self'">
+    <meta name="description" content="2人の偉人が同じ時代を生きていたかを、名前を入れるだけでタイムラインで比べられます。">
+    <title>偉人の時代</title>
+    <link rel="stylesheet" href="css/style.css">
+    <script type="module" src="src/app.js"></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <h1 class="site-title">偉人の時代</h1>
+      <p class="site-lead">2人の偉人が同じ時代を生きていたかを調べよう</p>
+    </header>
+
+    <main class="site-main">
+      <section class="person-inputs" aria-label="比べる人物">
+        <div class="person-input-slot"></div>
+        <div class="person-input-slot"></div>
+      </section>
+
+      <section class="timeline" aria-label="タイムライン">
+        <p class="timeline-empty">名前を入力して、比べたい人物を選んでください</p>
+        <svg class="timeline-svg" role="img" hidden></svg>
+      </section>
+
+      <section class="result" aria-live="polite"></section>
+    </main>
+
+    <footer class="site-footer">
+      <p>データ出典: <a href="https://www.wikidata.org/" rel="noopener">Wikidata</a></p>
+    </footer>
+  </body>
+</html>

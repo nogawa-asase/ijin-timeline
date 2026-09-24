@@ -1,0 +1,65 @@
+{
+  "id": "Q171411",
+  "labels": {
+    "ja": {
+      "value": "織田信長"
+    },
+    "en": {
+      "value": "Oda Nobunaga"
+    },
+    "mul": {
+      "value": "Oda Nobunaga"
+    }
+  },
+  "descriptions": {
+    "en": {
+      "value": "Japanese samurai and warlord (1534–1582)"
+    },
+    "ja": {
+      "value": "日本の戦国時代から安土桃山時代にかけての武将・大名・公卿"
+    }
+  },
+  "claims": {
+    "P31": [
+      {
+        "mainsnak": {
+          "snaktype": "value",
+          "datavalue": {
+            "value": {
+              "id": "Q5"
+            }
+          }
+        },
+        "rank": "normal"
+      }
+    ],
+    "P569": [
+      {
+        "mainsnak": {
+          "snaktype": "value",
+          "datavalue": {
+            "value": {
+              "time": "+1534-06-23T00:00:00Z",
+              "precision": 11
+            }
+          }
+        },
+        "rank": "normal"
+      }
+    ],
+    "P570": [
+      {
+        "mainsnak": {
+          "snaktype": "value",
+          "datavalue": {
+            "value": {
+              "time": "+1582-06-21T00:00:00Z",
+              "precision": 11
+            }
+          }
+        },
+        "rank": "normal"
+      }
+    ]
+  }
+}

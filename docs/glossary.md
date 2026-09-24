@@ -513,7 +513,7 @@
 
 **主要フィールド**:
 - `id`: Wikidata ID
-- `label`: 表示名(日本語 → 英語 → IDの順でフォールバック)
+- `label`: 表示名(日本語 → 全言語共通(`mul`) → 英語 → IDの順でフォールバック)
 - `description`: 短い説明
 - `birth`: 生年(`YearValue`)
 - `death`: 没年(`YearValue` または `null`)
