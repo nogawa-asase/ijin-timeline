@@ -24,6 +24,7 @@ export function createElements(options) {
   swatchEl.setAttribute('aria-hidden', 'true');
 
   const inputEl = document.createElement('input');
+  inputEl.id = `person-input-text-${slotNumber}`;
   inputEl.className = 'person-input-text';
   inputEl.type = 'text';
   inputEl.placeholder = placeholder;
