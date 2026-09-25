@@ -101,6 +101,49 @@ describe('searchPeople', () => {
     );
   });
 
+  it('別名で一致した候補は一致した別名を持つ', async () => {
+    globalThis.fetch = stubFetch(
+      { search: [{ id: 'Q171411', match: { type: 'alias', language: 'ja', text: '三郎' } }] },
+      { entities: { Q171411: oda } },
+    );
+
+    const [candidate] = await searchPeople('三郎', CURRENT_YEAR);
+
+    assert.equal(candidate.matchedAlias, '三郎');
+  });
+
+  it('ラベルで一致した候補、一致の情報がない候補は別名を持たない', async () => {
+    const odaCopy = { ...oda, id: 'Q2' };
+    globalThis.fetch = stubFetch(
+      {
+        search: [
+          { id: 'Q171411', match: { type: 'label', language: 'ja', text: '織田信長' } },
+          { id: 'Q2' },
+        ],
+      },
+      { entities: { Q171411: oda, Q2: odaCopy } },
+    );
+
+    const candidates = await searchPeople('織田', CURRENT_YEAR);
+
+    assert.deepEqual(
+      candidates.map((candidate) => candidate.matchedAlias),
+      [null, null],
+    );
+  });
+
+  it('一致した別名が表示名と同じなら別名を持たない', async () => {
+    globalThis.fetch = stubFetch(
+      { search: [{ id: 'Q171411', match: { type: 'alias', language: 'en', text: '織田信長' } }] },
+      { entities: { Q171411: oda } },
+    );
+
+    const [candidate] = await searchPeople('織田', CURRENT_YEAR);
+
+    assert.equal(candidate.label, '織田信長');
+    assert.equal(candidate.matchedAlias, null);
+  });
+
   it('詳細取得で存在しない項目は候補から除外する', async () => {
     globalThis.fetch = stubFetch(
       { search: [{ id: 'Q999' }, { id: 'Q171411' }] },

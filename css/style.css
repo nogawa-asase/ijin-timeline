@@ -189,6 +189,11 @@ body {
   font-weight: bold;
 }
 
+.person-input-option-alias {
+  color: var(--color-text-sub);
+  font-size: var(--font-size-small);
+}
+
 .person-input-option-description {
   display: block;
   color: var(--color-text-sub);

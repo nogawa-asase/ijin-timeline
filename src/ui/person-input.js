@@ -2,6 +2,7 @@ import { searchPeople, WikidataError } from '../data/wikidata-client.js';
 import { formatLifespan } from '../logic/years.js';
 
 /** @typedef {import('../data/person-parser.js').Person} Person */
+/** @typedef {import('../data/wikidata-client.js').Candidate} Candidate */
 
 /**
  * @typedef {Object} PersonInputOptions
@@ -76,7 +77,7 @@ function createElements(options) {
 /**
  * 候補1件分の要素を作る。
  *
- * @param {Person} person
+ * @param {Candidate} person
  * @param {string} optionId
  * @returns {HTMLLIElement}
  */
@@ -96,6 +97,13 @@ function createOptionElement(person, optionId) {
   yearsEl.textContent = `(${formatLifespan(person.birth, person.death, person.lifeStatus)})`;
 
   optionEl.append(nameEl, yearsEl);
+  if (person.matchedAlias !== null) {
+    // 名前に入力した文字を含まない候補が、なぜ出てきたのかを示す
+    const aliasEl = document.createElement('span');
+    aliasEl.className = 'person-input-option-alias';
+    aliasEl.textContent = `(別名: ${person.matchedAlias})`;
+    optionEl.append(aliasEl);
+  }
   if (person.description !== '') {
     const descriptionEl = document.createElement('span');
     descriptionEl.className = 'person-input-option-description';
@@ -119,7 +127,7 @@ export function createPersonInput(container, options) {
 
   /** @type {Person|null} */
   let selectedPerson = null;
-  /** @type {Person[]} */
+  /** @type {Candidate[]} */
   let candidates = [];
   let activeIndex = -1;
   let lastQuery = '';

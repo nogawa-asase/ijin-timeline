@@ -97,7 +97,19 @@ JavaScriptのため、型はJSDocの `@typedef` で定義する。
 
 ### Candidate(検索候補)
 
-候補一覧の1行分。検索結果から得たPersonをそのまま使う(`Candidate = Person`)。候補一覧では `label(生年–没年)description` の形式で表示する。
+候補一覧の1行分。検索結果から得たPersonに、検索で一致した別名を足したもの。候補一覧では `label(生年–没年)(別名: matchedAlias)description` の形式で表示する(別名は `matchedAlias` があるときのみ)。
+
+```javascript
+/**
+ * @typedef {Person & { matchedAlias: string|null }} Candidate
+ * matchedAlias: 別名で検索に一致したときのその別名(例: "豊臣秀綱")。
+ *               ラベルで一致した・一致の情報がない・別名が表示名と同じ場合はnull
+ */
+```
+
+**制約**:
+- 一致の情報は `wbsearchentities` の応答にしかないため、`src/data/wikidata-client.js` で定義し、Personに足す(`person-parser.js` はエンティティ1件の変換だけを担う)
+- 候補を選ぶと、Candidateをそのまま `onChange` に渡す。`app.js` 以降はPersonとして扱い、`matchedAlias` は使わない
 
 ### AppState(画面の状態)
 
@@ -162,7 +174,7 @@ erDiagram
  * @param {string} query  入力文字列(呼び出し側で前後の空白を除去し、100文字に切り詰め済み。1文字以上)
  * @param {number} currentYear  存命判定に使う現在の年(データレイヤーで現在時刻を取得しないため引数で受け取る)
  * @param {AbortSignal} [signal]  前の検索を中断するためのシグナル
- * @returns {Promise<Person[]>}  最大7件。人間かつ生年を持つ人物のみ
+ * @returns {Promise<Candidate[]>}  最大7件。人間かつ生年を持つ人物のみ。一致した別名を持つ
  * @throws {WikidataError}  通信失敗・タイムアウト・不正な応答のとき
  */
 export async function searchPeople(query, currentYear, signal) {}
@@ -385,6 +397,7 @@ sequenceDiagram
 2. 新しい検索を始めるとき、実行中の古い検索は `AbortController` で中断する。古い応答が後から届いて候補を上書きすることを防ぐ
 3. `wbsearchentities` で最大20件のIDを取得し、`wbgetentities` で詳細を1回でまとめて取得する(名字の項目などが上位を占めても、除外後に候補が残るようにするため)
 4. 人間でない・生年がないエンティティを除外し、検索結果の順番を保ったまま最大7件を表示する
+   - `wbsearchentities` の応答の `match.type` が `alias` の候補は、一致した別名(`match.text`)を「(別名: ○○)」として表示する。`wbsearchentities` はラベルだけでなく別名にも一致するため(例: 「豊臣」で天草四郎が別名「豊臣秀綱」で一致する)
 5. 候補を選ぶと入力欄に人物名が確定し、`onChange` で状態が更新される
 
 ### UC2: 2人を比較する
@@ -463,7 +476,10 @@ GET https://www.wikidata.org/w/api.php
 ```json
 {
   "search": [
-    { "id": "Q171411", "label": "織田信長", "description": "日本の戦国大名" }
+    { "id": "Q171411", "label": "織田信長", "description": "日本の戦国大名",
+      "match": { "type": "label", "language": "ja", "text": "織田信長" } },
+    { "id": "Q452628", "label": "天草四郎", "description": "日本のキリシタン",
+      "match": { "type": "alias", "language": "ja", "text": "豊臣秀綱" } }
   ]
 }
 ```
@@ -698,6 +714,7 @@ if (overlapStart <= overlapEnd) {
 |------|------|-------------|
 | 名前 | Personのlabel | 太字 |
 | 生没年 | 生年–没年 | `(1534年–1582年)`、存命は `(1960年–)`、没年不明は `(1100年–?)` |
+| 別名 | Candidateの `matchedAlias` | `(別名: 豊臣秀綱)`。小さめの灰色文字。別名で一致したときのみ |
 | 説明 | Personのdescription | 小さめの灰色文字。空なら省略 |
 
 **操作**:
