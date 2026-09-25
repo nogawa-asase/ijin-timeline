@@ -123,6 +123,10 @@ describe('formatLifespan', () => {
     assert.equal(formatLifespan({ year: 1100, precision: 'year' }, null, 'unknown'), '1100年–?');
   });
 
+  it('生年不明の人物は生年を「?」と表記する', () => {
+    assert.equal(formatLifespan(null, { year: 248, precision: 'year' }, 'deceased'), '?–248年');
+  });
+
   it('紀元前の人物は生没年の両方に「前」を付ける', () => {
     const text = formatLifespan(
       { year: -551, precision: 'year' },

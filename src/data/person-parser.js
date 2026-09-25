@@ -1,3 +1,5 @@
+import { MAX_LIFESPAN_YEARS } from '../logic/years.js';
+
 /** @typedef {import('../logic/years.js').YearValue} YearValue */
 /** @typedef {import('../logic/years.js').LifeStatus} LifeStatus */
 
@@ -6,7 +8,7 @@
  * @property {string} id           WikidataのID(例: "Q171411")
  * @property {string} label        表示名(日本語 → 多言語共通 → 英語 → IDの順で使う)
  * @property {string} description  短い説明(日本語。なければ空文字)
- * @property {YearValue} birth     生年
+ * @property {YearValue|null} birth  生年。生年不明(没年はある)の場合はnull。このときlifeStatusは必ず'deceased'
  * @property {YearValue|null} death  没年(ない場合はnull)
  * @property {LifeStatus} lifeStatus  没年の状態
  */
@@ -28,8 +30,6 @@ const FILTERED_OCCUPATION_IDS = new Set([
   'Q488111', // ポルノ俳優
   'Q66382950', // ポルノ女優
 ]);
-// 記録上の最長寿命(122歳)を目安に、これより新しい生年で没年がなければ存命とみなす
-const MAX_LIFESPAN_YEARS = 120;
 // ja の次に mul(全言語共通ラベル)を見るのは、名前を mul だけに登録している人物がいるため
 const LABEL_LANGUAGES = ['ja', 'mul', 'en'];
 
@@ -144,7 +144,23 @@ function parseBirth(claims) {
 }
 
 /**
- * 没年と没年の状態を読み取る。
+ * 没年の値を読み取る。
+ *
+ * @param {Object} claims
+ * @returns {{ death: YearValue|null, isUnknownValue: boolean }}
+ *   death: 日付の値がなければnull。isUnknownValue: 「不明な値」(somevalue)として登録されているか
+ */
+function readDeath(claims) {
+  const mainSnak = selectMainSnak(claims[DATE_OF_DEATH]);
+  if (mainSnak?.snaktype === 'somevalue') {
+    return { death: null, isUnknownValue: true };
+  }
+  const death = mainSnak?.snaktype === 'value' ? yearValueOfSnak(mainSnak) : null;
+  return { death, isUnknownValue: false };
+}
+
+/**
+ * 生年がわかる人物の、没年と没年の状態を読み取る。
  *
  * @param {Object} claims
  * @param {YearValue} birth
@@ -152,11 +168,10 @@ function parseBirth(claims) {
  * @returns {{ death: YearValue|null, lifeStatus: LifeStatus }}
  */
 function parseDeath(claims, birth, currentYear) {
-  const mainSnak = selectMainSnak(claims[DATE_OF_DEATH]);
-  if (mainSnak?.snaktype === 'somevalue') {
+  const { death, isUnknownValue } = readDeath(claims);
+  if (isUnknownValue) {
     return { death: null, lifeStatus: 'unknown' };
   }
-  const death = mainSnak?.snaktype === 'value' ? yearValueOfSnak(mainSnak) : null;
   if (death !== null) {
     return { death, lifeStatus: 'deceased' };
   }
@@ -188,7 +203,7 @@ function pickText(valuesByLanguage, languages) {
  * @param {Object} entity  wbgetentitiesのentities[id]
  * @param {number} currentYear  存命判定に使う現在の年
  * @returns {Person|null}  削除済み・人間でない・教育上の観点からフィルタリングする職業を持つ・
- *                         生年がない場合はnull
+ *                         生年も没年もない場合はnull
  */
 export function parsePerson(entity, currentYear) {
   if (entity === null || typeof entity !== 'object' || 'missing' in entity) {
@@ -201,17 +216,18 @@ export function parsePerson(entity, currentYear) {
   if (!isHuman(claims) || hasFilteredOccupation(claims)) {
     return null;
   }
-  const birth = parseBirth(claims);
-  if (birth === null) {
-    return null;
-  }
-
-  return {
+  const names = {
     id,
     label: pickText(entity.labels, LABEL_LANGUAGES) ?? id,
     // 英語の説明は子供には読みにくいため、ラベルと違い日本語以外にはフォールバックしない
     description: pickText(entity.descriptions, ['ja']) ?? '',
-    birth,
-    ...parseDeath(claims, birth, currentYear),
   };
+
+  const birth = parseBirth(claims);
+  if (birth === null) {
+    // 生年がわからなくても、没年があれば生年不明の人物として扱う(卑弥呼など)
+    const { death } = readDeath(claims);
+    return death === null ? null : { ...names, birth: null, death, lifeStatus: 'deceased' };
+  }
+  return { ...names, birth, ...parseDeath(claims, birth, currentYear) };
 }

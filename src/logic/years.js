@@ -6,6 +6,9 @@
 
 /** @typedef {'deceased'|'living'|'unknown'} LifeStatus */
 
+// 人の寿命の目安(記録上の最長寿命122歳から)。存命の判定と、生年不明の人物との比較に使う
+export const MAX_LIFESPAN_YEARS = 120;
+
 /**
  * 歴史的年を、0年を含む連続した数値(天文学的年)に変換する。
  *
@@ -100,13 +103,13 @@ export function representativeYear(yearValue) {
 /**
  * 生年と没年をまとめて表記する(括弧は付けない)。
  *
- * @param {YearValue} birth
+ * @param {YearValue|null} birth  生年不明はnull
  * @param {YearValue|null} death
  * @param {LifeStatus} lifeStatus
- * @returns {string} 例: "1534年–1582年"、存命は "1960年–"、没年不明は "1100年–?"
+ * @returns {string} 例: "1534年–1582年"、存命は "1960年–"、没年不明は "1100年–?"、生年不明は "?–248年"
  */
 export function formatLifespan(birth, death, lifeStatus) {
-  const birthText = formatYearValue(birth);
+  const birthText = birth === null ? '?' : formatYearValue(birth);
   if (lifeStatus === 'living') {
     return `${birthText}–`;
   }

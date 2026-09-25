@@ -26,6 +26,18 @@ function createPerson(label, birthYear, deathYear, overrides = {}) {
 const nobunaga = createPerson('織田信長', 1534, 1582);
 const ieyasu = createPerson('徳川家康', 1543, 1616);
 
+/**
+ * テスト用の生年不明のPersonを作る。
+ * @param {string} label
+ * @param {number} deathYear
+ * @param {Object} [overrides]
+ */
+function createBirthUnknownPerson(label, deathYear, overrides = {}) {
+  return createPerson(label, 0, deathYear, { birth: null, ...overrides });
+}
+
+const himiko = createBirthUnknownPerson('卑弥呼', 248);
+
 describe('lifespanOf', () => {
   it('故人は生年と没年の天文学的年を返す', () => {
     assert.deepEqual(lifespanOf(nobunaga, CURRENT_YEAR), {
@@ -42,6 +54,10 @@ describe('lifespanOf', () => {
   it('没年不明の人物は終了年をnullとする', () => {
     const unknown = createPerson('不明', 1100, null, { lifeStatus: 'unknown' });
     assert.equal(lifespanOf(unknown, CURRENT_YEAR).endAstroYear, null);
+  });
+
+  it('生年不明の人物は開始年をnullとする', () => {
+    assert.deepEqual(lifespanOf(himiko, CURRENT_YEAR), { startAstroYear: null, endAstroYear: 248 });
   });
 });
 
@@ -111,6 +127,78 @@ describe('comparePeople', () => {
     const result = comparePeople(nobunaga, unknown, CURRENT_YEAR);
     assert.equal(result.kind, 'undetermined');
     assert.deepEqual(result.unknownPeople, [unknown]);
+  });
+
+  it('生年不明の人物の没年より後に相手が生まれた場合は重なりなしとする', () => {
+    const result = comparePeople(nobunaga, himiko, CURRENT_YEAR);
+    assert.equal(result.kind, 'gap');
+    assert.equal(result.elder, himiko);
+    assert.equal(result.younger, nobunaga);
+    assert.equal(result.gapYears, 1286);
+    assert.equal(result.approximate, false);
+  });
+
+  it('1人目が生年不明でも重なりなしを判定する', () => {
+    const result = comparePeople(himiko, nobunaga, CURRENT_YEAR);
+    assert.equal(result.kind, 'gap');
+    assert.equal(result.elder, himiko);
+    assert.equal(result.gapYears, 1286);
+  });
+
+  it('生年不明の人物の没年と同じ年に相手が生まれた場合は判定不可とする', () => {
+    const other = createPerson('同年生まれ', 248, 300);
+    const result = comparePeople(himiko, other, CURRENT_YEAR);
+    assert.equal(result.kind, 'undetermined');
+    assert.deepEqual(result.unknownBirthPeople, [himiko]);
+  });
+
+  it('生年不明の人物の没年の前後120年以内に生きていた人物とは判定不可とする', () => {
+    const other = createPerson('同時代', 150, 200);
+    const result = comparePeople(himiko, other, CURRENT_YEAR);
+    assert.equal(result.kind, 'undetermined');
+    assert.deepEqual(result.unknownBirthPeople, [himiko]);
+    assert.deepEqual(result.unknownPeople, []);
+  });
+
+  it('生年不明の人物の没年より121年以上前に相手が亡くなった場合は重なりなしとする', () => {
+    // 孔子(前551–前479)と卑弥呼(?–248): 前479年から248年までは726年
+    const confucius = createPerson('孔子', -551, -479);
+    const result = comparePeople(himiko, confucius, CURRENT_YEAR);
+    assert.equal(result.kind, 'gap');
+    assert.equal(result.elder, confucius);
+    assert.equal(result.younger, himiko);
+    assert.equal(result.gapYears, null);
+    assert.equal(result.deathGapYears, 726);
+  });
+
+  it('生年不明の人物の没年のちょうど120年前に相手が亡くなった場合は判定不可とする', () => {
+    const other = createPerson('120年前', 50, 128);
+    const result = comparePeople(himiko, other, CURRENT_YEAR);
+    assert.equal(result.kind, 'undetermined');
+  });
+
+  it('2人とも生年不明の場合は判定不可とする', () => {
+    const other = createBirthUnknownPerson('生年不明2', 1000);
+    const result = comparePeople(himiko, other, CURRENT_YEAR);
+    assert.equal(result.kind, 'undetermined');
+    assert.deepEqual(result.unknownBirthPeople, [himiko, other]);
+  });
+
+  it('生年不明と没年不明の人物は判定不可とし両方の理由を持つ', () => {
+    const unknown = createPerson('没年不明', 1572, null, { lifeStatus: 'unknown' });
+    const result = comparePeople(himiko, unknown, CURRENT_YEAR);
+    assert.equal(result.kind, 'undetermined');
+    assert.deepEqual(result.unknownBirthPeople, [himiko]);
+    assert.deepEqual(result.unknownPeople, [unknown]);
+  });
+
+  it('没年があいまいな生年不明の人物との重なりなしは目安とする', () => {
+    const approximate = createBirthUnknownPerson('あいまい', 1100, {
+      death: { year: 1100, precision: 'century' },
+    });
+    const result = comparePeople(approximate, nobunaga, CURRENT_YEAR);
+    assert.equal(result.kind, 'gap');
+    assert.equal(result.approximate, true);
   });
 
   it('2人とも存命の場合は現在まで続く重なりとする', () => {

@@ -41,7 +41,7 @@ function dashedLengthsOf(person, lineLength) {
   const dashedLength = Math.max(MIN_DASHED_LENGTH, lineLength * DASHED_RATIO);
   // 線が短いときに両端の点線が重ならないよう、それぞれ線の半分までにする
   const limitedLength = Math.min(dashedLength, lineLength / 2);
-  const isBirthApproximate = person.birth.precision !== 'year';
+  const isBirthApproximate = person.birth !== null && person.birth.precision !== 'year';
   const isDeathApproximate = person.death !== null && person.death.precision !== 'year';
   return {
     startDashed: isBirthApproximate ? limitedLength : 0,
@@ -69,8 +69,8 @@ function drawLifeLine(svg, row, startX, endX, lineY) {
     svg.append(createSvgElement('line', { x1: fromX, y1: lineY, x2: toX, y2: lineY }, className));
   };
 
-  // 没年不明は線全体を点線にするため、あいまいな年の端の点線は重ねない
-  if (span.isTentativeEnd) {
+  // 没年不明・生年不明は線全体を点線にするため、あいまいな年の端の点線は重ねない
+  if (span.isTentativeStart || span.isTentativeEnd) {
     drawSegment(startX, endX, true);
     return;
   }
@@ -90,6 +90,16 @@ function drawLifeLine(svg, row, startX, endX, lineY) {
     ].join(' ');
     svg.append(createSvgElement('polygon', { points }, `timeline-arrow ${colorClass}`));
   }
+}
+
+/**
+ * 線の左端に表示する文字列を返す。
+ *
+ * @param {Person} person
+ * @returns {string}
+ */
+export function startLabelOf(person) {
+  return person.birth === null ? '生年不明' : formatYearValue(person.birth);
 }
 
 /**
@@ -122,7 +132,7 @@ function drawYearLabels(svg, layout, row, position) {
 
   const birthSvg = appendText(
     svg,
-    formatYearValue(row.person.birth),
+    startLabelOf(row.person),
     { x: startX - LABEL_GAP, y: textY, 'text-anchor': 'end' },
     'timeline-year',
   );

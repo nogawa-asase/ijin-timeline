@@ -1,4 +1,4 @@
-import { representativeYear } from './years.js';
+import { MAX_LIFESPAN_YEARS, representativeYear } from './years.js';
 
 /** @typedef {import('../data/person-parser.js').Person} Person */
 /** @typedef {import('./years.js').YearValue} YearValue */
@@ -15,8 +15,11 @@ import { representativeYear } from './years.js';
  * @property {boolean} [isOngoing]    2人とも存命で、重なりが現在まで続いているか
  * @property {number} [overlapYears]  重なり年数(kind='overlap'のとき)
  * @property {number} [ageAtBirth]    youngerが生まれたときのelderの年齢(kind='overlap'のとき)
- * @property {number} [gapYears]      elderの没年からyoungerの生年までの年数(kind='gap'のとき)
+ * @property {number|null} [gapYears]  elderの没年からyoungerの生年までの年数(kind='gap'のとき)。
+ *                                     youngerが生年不明で計算できない場合はnull
+ * @property {number} [deathGapYears]  elderの没年からyoungerの没年までの年数(gapYearsがnullのとき)
  * @property {Person[]} [unknownPeople]  没年不明の人物(kind='undetermined'のとき)
+ * @property {Person[]} [unknownBirthPeople]  生年不明の人物(kind='undetermined'のとき)
  * @property {boolean} approximate    あいまいな年を含むかどうか
  */
 
@@ -25,11 +28,11 @@ import { representativeYear } from './years.js';
  *
  * @param {Person} person
  * @param {number} currentYear  存命人物の終了年として使う
- * @returns {{ startAstroYear: number, endAstroYear: number|null }}
- *   終了年は、没年不明のときnull
+ * @returns {{ startAstroYear: number|null, endAstroYear: number|null }}
+ *   開始年は生年不明のとき、終了年は没年不明のときnull
  */
 export function lifespanOf(person, currentYear) {
-  const startAstroYear = representativeYear(person.birth);
+  const startAstroYear = person.birth === null ? null : representativeYear(person.birth);
   if (person.lifeStatus === 'living') {
     return { startAstroYear, endAstroYear: currentYear };
   }
@@ -48,7 +51,7 @@ export function lifespanOf(person, currentYear) {
 function hasApproximateYear(people) {
   return people.some(
     (person) =>
-      person.birth.precision !== 'year' ||
+      (person.birth !== null && person.birth.precision !== 'year') ||
       (person.death !== null && person.death.precision !== 'year'),
   );
 }
@@ -68,6 +71,52 @@ function endYearValueOf(person, currentYear) {
 }
 
 /**
+ * 生年不明の人物と、生年・没年がわかる(または存命の)相手を比べる。
+ * 同じ時代でないことが確実な場合だけ重なりなしとし、それ以外は判定不可にする。
+ *
+ * @param {Person} birthUnknown  生年不明の人物(lifeStatus = 'deceased')
+ * @param {Person} other          生年がわかり、没年不明でない人物
+ * @param {number} currentYear
+ * @param {boolean} approximate
+ * @returns {Comparison}
+ */
+function compareWithBirthUnknown(birthUnknown, other, currentYear, approximate) {
+  const deathAstroYear = /** @type {number} */ (lifespanOf(birthUnknown, currentYear).endAstroYear);
+  const otherSpan = lifespanOf(other, currentYear);
+  const otherStartAstroYear = /** @type {number} */ (otherSpan.startAstroYear);
+  const otherEndAstroYear = /** @type {number} */ (otherSpan.endAstroYear);
+
+  // 生年不明の人物が亡くなった後に相手が生まれた場合は、空白の年数まで確定する
+  if (otherStartAstroYear > deathAstroYear) {
+    return {
+      kind: 'gap',
+      elder: birthUnknown,
+      younger: other,
+      gapYears: otherStartAstroYear - deathAstroYear,
+      approximate,
+    };
+  }
+  // 寿命の目安より前に相手が亡くなっていれば、生年不明の人物は相手の死後に生まれている
+  const deathGapYears = deathAstroYear - otherEndAstroYear;
+  if (deathGapYears > MAX_LIFESPAN_YEARS) {
+    return {
+      kind: 'gap',
+      elder: other,
+      younger: birthUnknown,
+      gapYears: null,
+      deathGapYears,
+      approximate,
+    };
+  }
+  return {
+    kind: 'undetermined',
+    unknownPeople: [],
+    unknownBirthPeople: [birthUnknown],
+    approximate,
+  };
+}
+
+/**
  * 2人の生存期間を比べ、重なり・年齢関係・空白期間を計算する。
  *
  * @param {Person} a  1人目(同じ年に生まれた場合は先に生まれた側として扱う)
@@ -79,8 +128,14 @@ export function comparePeople(a, b, currentYear) {
   const approximate = hasApproximateYear([a, b]);
 
   const unknownPeople = [a, b].filter((person) => person.lifeStatus === 'unknown');
-  if (unknownPeople.length > 0) {
-    return { kind: 'undetermined', unknownPeople, approximate };
+  const unknownBirthPeople = [a, b].filter((person) => person.birth === null);
+  if (unknownPeople.length === 0 && unknownBirthPeople.length === 1) {
+    const [birthUnknown] = unknownBirthPeople;
+    const other = birthUnknown === a ? b : a;
+    return compareWithBirthUnknown(birthUnknown, other, currentYear, approximate);
+  }
+  if (unknownPeople.length > 0 || unknownBirthPeople.length > 0) {
+    return { kind: 'undetermined', unknownPeople, unknownBirthPeople, approximate };
   }
 
   const aSpan = lifespanOf(a, currentYear);
@@ -89,10 +144,11 @@ export function comparePeople(a, b, currentYear) {
   const [elder, younger] = isAElder ? [a, b] : [b, a];
   const [elderSpan, youngerSpan] = isAElder ? [aSpan, bSpan] : [bSpan, aSpan];
 
-  // 判定不可を先に除外しているため、ここでは終了年は必ず数値になる
+  // 判定不可・生年不明を先に除外しているため、ここでは開始年・終了年は必ず数値になる
+  const elderStartAstroYear = /** @type {number} */ (elderSpan.startAstroYear);
   const elderEndAstroYear = /** @type {number} */ (elderSpan.endAstroYear);
   const youngerEndAstroYear = /** @type {number} */ (youngerSpan.endAstroYear);
-  const overlapStartAstroYear = youngerSpan.startAstroYear;
+  const overlapStartAstroYear = /** @type {number} */ (youngerSpan.startAstroYear);
 
   if (overlapStartAstroYear > elderEndAstroYear) {
     return {
@@ -119,7 +175,7 @@ export function comparePeople(a, b, currentYear) {
     overlapEndAstroYear,
     isOngoing: elder.lifeStatus === 'living' && younger.lifeStatus === 'living',
     overlapYears: overlapEndAstroYear - overlapStartAstroYear,
-    ageAtBirth: overlapStartAstroYear - elderSpan.startAstroYear,
+    ageAtBirth: overlapStartAstroYear - elderStartAstroYear,
     approximate,
   };
 }

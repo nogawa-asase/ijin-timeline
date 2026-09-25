@@ -7,6 +7,7 @@ import { formatAxisYear, fromAstronomical, toAstronomical } from './years.js';
  * @typedef {Object} DrawSpan
  * @property {number} startAstroYear  線の左端(天文学的年)
  * @property {number} endAstroYear    線の右端(天文学的年)
+ * @property {boolean} isTentativeStart  生年不明のため左端が仮の年かどうか
  * @property {boolean} isTentativeEnd  没年不明のため右端が仮の年かどうか
  */
 
@@ -22,7 +23,7 @@ import { formatAxisYear, fromAstronomical, toAstronomical } from './years.js';
  * @property {string} label      目盛りのラベル(例: "1600", "前500")
  */
 
-// 没年不明の人物は、生年からこの年数だけ線を引いて仮の終了年とする
+// 没年不明の人物は生年からこの年数後を仮の終了年、生年不明の人物は没年からこの年数前を仮の開始年とする
 const TENTATIVE_LIFESPAN_YEARS = 50;
 const MIN_PADDING_YEARS = 5;
 const PADDING_RATIO = 0.1;
@@ -30,7 +31,7 @@ const MAX_TICK_COUNT = 8;
 const TICK_STEPS = [1, 2, 5, 10, 20, 25, 50, 100, 200, 250, 500, 1000];
 
 /**
- * 人物の線を描く期間を返す。没年不明の人物は仮の終了年を使う。
+ * 人物の線を描く期間を返す。没年不明の人物は仮の終了年、生年不明の人物は仮の開始年を使う。
  *
  * @param {Person} person
  * @param {number} currentYear
@@ -38,14 +39,25 @@ const TICK_STEPS = [1, 2, 5, 10, 20, 25, 50, 100, 200, 250, 500, 1000];
  */
 export function drawSpanOf(person, currentYear) {
   const { startAstroYear, endAstroYear } = lifespanOf(person, currentYear);
+  // 生年不明の人物は必ず没年を持つ(Personの不変条件)ため、開始年・終了年の両方がnullになることはない
+  if (startAstroYear === null) {
+    const deathAstroYear = /** @type {number} */ (endAstroYear);
+    return {
+      startAstroYear: deathAstroYear - TENTATIVE_LIFESPAN_YEARS,
+      endAstroYear: deathAstroYear,
+      isTentativeStart: true,
+      isTentativeEnd: false,
+    };
+  }
   if (endAstroYear === null) {
     return {
       startAstroYear,
       endAstroYear: startAstroYear + TENTATIVE_LIFESPAN_YEARS,
+      isTentativeStart: false,
       isTentativeEnd: true,
     };
   }
-  return { startAstroYear, endAstroYear, isTentativeEnd: false };
+  return { startAstroYear, endAstroYear, isTentativeStart: false, isTentativeEnd: false };
 }
 
 /**

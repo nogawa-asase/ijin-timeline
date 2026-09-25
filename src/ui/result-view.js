@@ -37,6 +37,56 @@ function buildOverlapSentences(comparison) {
 }
 
 /**
+ * 人物の名前を「と」でつなぐ。
+ *
+ * @param {Person[]} people
+ * @returns {string}  例: "卑弥呼と出雲阿国"
+ */
+function joinNames(people) {
+  return people.map((person) => person.label).join('と');
+}
+
+/**
+ * 判定不可の理由の部分を組み立てる。
+ *
+ * @param {Comparison} comparison  kind = 'undetermined'
+ * @returns {string}  例: "卑弥呼の生年と出雲阿国の没年"
+ */
+function buildUnknownReason(comparison) {
+  const reasons = [];
+  const unknownBirthPeople = comparison.unknownBirthPeople ?? [];
+  const unknownPeople = comparison.unknownPeople ?? [];
+  if (unknownBirthPeople.length > 0) {
+    reasons.push(`${joinNames(unknownBirthPeople)}の生年`);
+  }
+  if (unknownPeople.length > 0) {
+    reasons.push(`${joinNames(unknownPeople)}の没年`);
+  }
+  return reasons.join('と');
+}
+
+/**
+ * 重なりがない場合の文章を組み立てる。
+ *
+ * @param {Comparison} comparison  kind = 'gap'
+ * @returns {string}
+ */
+function buildGapSentence(comparison) {
+  const { elder, younger, gapYears, deathGapYears } = /** @type {Required<Comparison>} */ (
+    comparison
+  );
+  if (gapYears === null) {
+    // youngerが生年不明で空白の年数を出せないため、2人の没年の差で離れていることを示す
+    return (
+      `${elder.label}が亡くなってから約${deathGapYears}年後に${younger.label}が亡くなっており、` +
+      `同じ時代ではありません(${younger.label}の生年は不明です)`
+    );
+  }
+  // 亡くなった年に生まれた場合は重なり0年(overlap)になるため、gapYearsは常に1以上
+  return `${elder.label}が亡くなってから約${gapYears}年後に、${younger.label}が生まれました`;
+}
+
+/**
  * 比較結果を文章の一覧にする(機能設計書 A5 の文章パターン)。
  *
  * @param {Comparison} comparison
@@ -44,13 +94,10 @@ function buildOverlapSentences(comparison) {
  */
 function buildSentences(comparison) {
   if (comparison.kind === 'undetermined') {
-    const names = (comparison.unknownPeople ?? []).map((person) => person.label).join('と');
-    return [`${names}の没年が不明なため、同じ時代かどうかを判定できません`];
+    return [`${buildUnknownReason(comparison)}が不明なため、同じ時代かどうかを判定できません`];
   }
   if (comparison.kind === 'gap') {
-    // 亡くなった年に生まれた場合は重なり0年(overlap)になるため、gapYearsは常に1以上
-    const { elder, younger, gapYears } = /** @type {Required<Comparison>} */ (comparison);
-    return [`${elder.label}が亡くなってから約${gapYears}年後に、${younger.label}が生まれました`];
+    return [buildGapSentence(comparison)];
   }
   return buildOverlapSentences(comparison);
 }

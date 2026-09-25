@@ -172,11 +172,27 @@ describe('parsePerson', () => {
     assert.equal(parsePerson(loadEntity('Q1053-molybdenum.json'), CURRENT_YEAR), null);
   });
 
-  it('生年が「不明な値」の人物はnullを返す', () => {
-    assert.equal(parsePerson(loadEntity('Q234451-himiko.json'), CURRENT_YEAR), null);
+  it('生年が「不明な値」で没年がある人物は生年不明のPersonに変換する', () => {
+    const person = parsePerson(loadEntity('Q234451-himiko.json'), CURRENT_YEAR);
+    assert.equal(person.label, '卑弥呼');
+    assert.equal(person.birth, null);
+    assert.deepEqual(person.death, { year: 248, precision: 'year' });
+    assert.equal(person.lifeStatus, 'deceased');
   });
 
-  it('生年がない人物はnullを返す', () => {
+  it('生年がなく没年がある人物は生年不明のPersonに変換する', () => {
+    const entity = createEntity({ P570: [timeClaim('+0248-01-01T00:00:00Z')] });
+    const person = parsePerson(entity, CURRENT_YEAR);
+    assert.equal(person.birth, null);
+    assert.equal(person.lifeStatus, 'deceased');
+  });
+
+  it('生年がなく没年が「不明な値」の人物はnullを返す', () => {
+    const entity = createEntity({ P570: [{ mainsnak: { snaktype: 'somevalue' }, rank: 'normal' }] });
+    assert.equal(parsePerson(entity, CURRENT_YEAR), null);
+  });
+
+  it('生年も没年もない人物はnullを返す', () => {
     assert.equal(parsePerson(createEntity({}), CURRENT_YEAR), null);
   });
 

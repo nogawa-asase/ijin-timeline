@@ -19,6 +19,7 @@ describe('drawSpanOf', () => {
     assert.deepEqual(drawSpanOf(person, CURRENT_YEAR), {
       startAstroYear: 1534,
       endAstroYear: 1582,
+      isTentativeStart: false,
       isTentativeEnd: false,
     });
   });
@@ -28,7 +29,18 @@ describe('drawSpanOf', () => {
     assert.deepEqual(drawSpanOf(person, CURRENT_YEAR), {
       startAstroYear: 1100,
       endAstroYear: 1150,
+      isTentativeStart: false,
       isTentativeEnd: true,
+    });
+  });
+
+  it('生年不明の人物は没年−50年を仮の開始年とする', () => {
+    const person = { birth: null, death: { year: 248, precision: 'year' }, lifeStatus: 'deceased' };
+    assert.deepEqual(drawSpanOf(person, CURRENT_YEAR), {
+      startAstroYear: 198,
+      endAstroYear: 248,
+      isTentativeStart: true,
+      isTentativeEnd: false,
     });
   });
 

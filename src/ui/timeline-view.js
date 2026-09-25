@@ -1,7 +1,6 @@
 import { comparePeople } from '../logic/comparison.js';
 import { computeTicks, computeTimeRange, drawSpanOf } from '../logic/timeline-scale.js';
-import { formatYearValue } from '../logic/years.js';
-import { drawPersonRow, endLabelOf, ROW_HEIGHT } from './timeline/person-row.js';
+import { drawPersonRow, endLabelOf, ROW_HEIGHT, startLabelOf } from './timeline/person-row.js';
 import { appendText, createSvgElement } from './timeline/svg.js';
 
 /** @typedef {import('../data/person-parser.js').Person} Person */
@@ -89,7 +88,7 @@ function drawOverlap(svg, layout, rows, currentYear) {
  */
 function describeTimeline(rows) {
   const summaries = rows.map(({ person }) => {
-    return `${person.label} ${formatYearValue(person.birth)}〜${endLabelOf(person)}`;
+    return `${person.label} ${startLabelOf(person)}〜${endLabelOf(person)}`;
   });
   return `${summaries.join('、')}のタイムライン`;
 }
