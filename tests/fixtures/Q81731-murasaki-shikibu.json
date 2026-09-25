@@ -1,0 +1,185 @@
+{
+  "id": "Q81731",
+  "labels": {
+    "ja": {
+      "value": "紫式部"
+    },
+    "en": {
+      "value": "Murasaki Shikibu"
+    },
+    "mul": {
+      "value": "Murasaki Shikibu"
+    }
+  },
+  "descriptions": {
+    "ja": {
+      "value": "日本の平安時代の女性歌人、作家、女房"
+    },
+    "en": {
+      "value": "Japanese novelist and poet (c.973–c.1014)"
+    }
+  },
+  "claims": {
+    "P31": [
+      {
+        "mainsnak": {
+          "snaktype": "value",
+          "datavalue": {
+            "value": {
+              "id": "Q5"
+            }
+          }
+        },
+        "rank": "normal"
+      }
+    ],
+    "P569": [
+      {
+        "mainsnak": {
+          "snaktype": "value",
+          "datavalue": {
+            "value": {
+              "time": "+0978-00-00T00:00:00Z",
+              "precision": 9
+            }
+          }
+        },
+        "rank": "normal"
+      },
+      {
+        "mainsnak": {
+          "snaktype": "value",
+          "datavalue": {
+            "value": {
+              "time": "+0972-00-00T00:00:00Z",
+              "precision": 9
+            }
+          }
+        },
+        "rank": "normal"
+      },
+      {
+        "mainsnak": {
+          "snaktype": "value",
+          "datavalue": {
+            "value": {
+              "time": "+0974-00-00T00:00:00Z",
+              "precision": 9
+            }
+          }
+        },
+        "rank": "normal"
+      },
+      {
+        "mainsnak": {
+          "snaktype": "value",
+          "datavalue": {
+            "value": {
+              "time": "+0975-00-00T00:00:00Z",
+              "precision": 9
+            }
+          }
+        },
+        "rank": "normal"
+      },
+      {
+        "mainsnak": {
+          "snaktype": "value",
+          "datavalue": {
+            "value": {
+              "time": "+0970-00-00T00:00:00Z",
+              "precision": 9
+            }
+          }
+        },
+        "rank": "normal"
+      },
+      {
+        "mainsnak": {
+          "snaktype": "value",
+          "datavalue": {
+            "value": {
+              "time": "+0973-00-00T00:00:00Z",
+              "precision": 9
+            }
+          }
+        },
+        "rank": "normal"
+      },
+      {
+        "mainsnak": {
+          "snaktype": "value",
+          "datavalue": {
+            "value": {
+              "time": "+0970-00-00T00:00:00Z",
+              "precision": 8
+            }
+          }
+        },
+        "rank": "preferred"
+      }
+    ],
+    "P570": [
+      {
+        "mainsnak": {
+          "snaktype": "value",
+          "datavalue": {
+            "value": {
+              "time": "+1014-00-00T00:00:00Z",
+              "precision": 9
+            }
+          }
+        },
+        "rank": "normal"
+      },
+      {
+        "mainsnak": {
+          "snaktype": "value",
+          "datavalue": {
+            "value": {
+              "time": "+1016-00-00T00:00:00Z",
+              "precision": 9
+            }
+          }
+        },
+        "rank": "normal"
+      },
+      {
+        "mainsnak": {
+          "snaktype": "value",
+          "datavalue": {
+            "value": {
+              "time": "+1031-00-00T00:00:00Z",
+              "precision": 9
+            }
+          }
+        },
+        "rank": "normal"
+      },
+      {
+        "mainsnak": {
+          "snaktype": "value",
+          "datavalue": {
+            "value": {
+              "time": "+1019-00-00T00:00:00Z",
+              "precision": 9
+            }
+          }
+        },
+        "rank": "normal"
+      },
+      {
+        "mainsnak": {
+          "snaktype": "value",
+          "datavalue": {
+            "value": {
+              "time": "+1100-00-00T00:00:00Z",
+              "precision": 7
+            }
+          }
+        },
+        "rank": "preferred"
+      }
+    ]
+  }
+}

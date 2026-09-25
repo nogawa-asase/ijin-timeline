@@ -1,0 +1,59 @@
+{
+  "id": "Q234451",
+  "labels": {
+    "en": {
+      "value": "Himiko"
+    },
+    "ja": {
+      "value": "卑弥呼"
+    },
+    "mul": {
+      "value": "Himiko"
+    }
+  },
+  "descriptions": {
+    "en": {
+      "value": "3rd century queen of Yamataikoku"
+    },
+    "ja": {
+      "value": "西暦3世紀中頃に倭の邪馬台国を統治した女王"
+    }
+  },
+  "claims": {
+    "P31": [
+      {
+        "mainsnak": {
+          "snaktype": "value",
+          "datavalue": {
+            "value": {
+              "id": "Q5"
+            }
+          }
+        },
+        "rank": "normal"
+      }
+    ],
+    "P569": [
+      {
+        "mainsnak": {
+          "snaktype": "somevalue"
+        },
+        "rank": "normal"
+      }
+    ],
+    "P570": [
+      {
+        "mainsnak": {
+          "snaktype": "value",
+          "datavalue": {
+            "value": {
+              "time": "+0248-00-00T00:00:00Z",
+              "precision": 9
+            }
+          }
+        },
+        "rank": "normal"
+      }
+    ]
+  }
+}

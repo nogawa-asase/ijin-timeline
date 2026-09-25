@@ -19,6 +19,7 @@ graph TB
         end
         subgraph Logic[ロジックレイヤー]
             Comparison[comparison.js<br/>重なり・年齢関係の計算]
+            Scale[timeline-scale.js<br/>表示範囲・目盛りの計算]
             Years[years.js<br/>年の変換・表記]
         end
         subgraph Data[データレイヤー]
@@ -35,7 +36,8 @@ graph TB
     App --> TimelineView
     App --> ResultView
     ResultView --> Comparison
-    TimelineView --> Years
+    TimelineView --> Scale
+    Scale --> Comparison
     Comparison --> Years
     Client --> Parser
     Parser --> Years
@@ -76,9 +78,9 @@ JavaScriptのため、型はJSDocの `@typedef` で定義する。
 /**
  * @typedef {Object} Person
  * @property {string} id               WikidataのID(例: "Q171411")
- * @property {string} label            表示名(日本語ラベル。なければ英語ラベル、それもなければID)
+ * @property {string} label            表示名(日本語ラベル。なければ全言語共通ラベル(mul)、英語ラベル、IDの順)
  * @property {string} description      短い説明(日本語。なければ空文字。英語の説明は子供には読みにくいため、labelと違い英語にはフォールバックしない)
- * @property {YearValue} birth         生年(必須。生年がない人物はPersonにならない)
+ * @property {YearValue|null} birth    生年。生年不明(生年がなく、没年がある)の場合はnull
  * @property {YearValue|null} death    没年(ない場合はnull)
  * @property {'deceased'|'living'|'unknown'} lifeStatus  没年の状態
  */
@@ -93,9 +95,23 @@ JavaScriptのため、型はJSDocの `@typedef` で定義する。
 | 没年がなく、生年が「現在の年 − 120」以降 | `'living'` |
 | 上記以外(没年がなく、生年が120年より前) | `'unknown'` |
 
+**生年不明の不変条件**: `birth === null` のとき、`death !== null` かつ `lifeStatus === 'deceased'`。生年も没年もわからない人物はPersonにならない。
+
 ### Candidate(検索候補)
 
-候補一覧の1行分。検索結果から得たPersonをそのまま使う(`Candidate = Person`)。候補一覧では `label(生年–没年)description` の形式で表示する。
+候補一覧の1行分。検索結果から得たPersonに、検索で一致した別名を足したもの。候補一覧では `label(生年–没年)(別名: matchedAlias)description` の形式で表示する(別名は `matchedAlias` があるときのみ)。
+
+```javascript
+/**
+ * @typedef {Person & { matchedAlias: string|null }} Candidate
+ * matchedAlias: 別名で検索に一致したときのその別名(例: "豊臣秀綱")。
+ *               ラベルで一致した・一致の情報がない・別名が表示名と同じ場合はnull
+ */
+```
+
+**制約**:
+- 一致の情報は `wbsearchentities` の応答にしかないため、`src/data/wikidata-client.js` で定義し、Personに足す(`person-parser.js` はエンティティ1件の変換だけを担う)
+- 候補を選ぶと、Candidateをそのまま `onChange` に渡す。`app.js` 以降はPersonとして扱い、`matchedAlias` は使わない
 
 ### AppState(画面の状態)
 
@@ -116,16 +132,25 @@ JavaScriptのため、型はJSDocの `@typedef` で定義する。
 /**
  * @typedef {Object} Comparison
  * @property {'overlap'|'gap'|'undetermined'} kind  重なりあり / 重なりなし / 判定不可
- * @property {number} [overlapStart]  重なり開始年(kind='overlap'のとき)
- * @property {number} [overlapEnd]    重なり終了年(kind='overlap'のとき)
- * @property {number} [overlapYears]  重なり年数(kind='overlap'のとき)
  * @property {Person} [elder]         先に生まれた人物
  * @property {Person} [younger]       後に生まれた人物
+ * @property {YearValue} [overlapStart]  重なり開始年(youngerの生年。kind='overlap'のとき)
+ * @property {YearValue} [overlapEnd]    重なり終了年(先に亡くなった人物の没年。isOngoingのときは現在の年)
+ * @property {number} [overlapStartAstroYear]  重なり開始年の天文学的年(描画用)
+ * @property {number} [overlapEndAstroYear]    重なり終了年の天文学的年(描画用)
+ * @property {boolean} [isOngoing]    2人とも存命で、重なりが現在まで続いているか
+ * @property {number} [overlapYears]  重なり年数(kind='overlap'のとき)
  * @property {number} [ageAtBirth]    youngerが生まれたときのelderの年齢(kind='overlap'のとき)
- * @property {number} [gapYears]      elderの没年からyoungerの生年までの年数(kind='gap'のとき)
+ * @property {number|null} [gapYears]  elderの没年からyoungerの生年までの年数(kind='gap'のとき)。
+ *                                     youngerが生年不明で計算できない場合はnull
+ * @property {number} [deathGapYears]  elderの没年からyoungerの没年までの年数(gapYearsがnullのとき)
+ * @property {Person[]} [unknownPeople]  没年不明の人物(kind='undetermined'のとき)
+ * @property {Person[]} [unknownBirthPeople]  生年不明の人物(kind='undetermined'のとき)
  * @property {boolean} approximate    あいまいな年を含むかどうか
  */
 ```
+
+重なり年を `YearValue` で持つのは、文章で「1530年代」のような精度付きの表記をするため。描画では天文学的年を使う。
 
 ### データの関係
 
@@ -152,11 +177,12 @@ erDiagram
 /**
  * 名前の一部から人物候補を検索する
  * @param {string} query  入力文字列(呼び出し側で前後の空白を除去し、100文字に切り詰め済み。1文字以上)
+ * @param {number} currentYear  存命判定に使う現在の年(データレイヤーで現在時刻を取得しないため引数で受け取る)
  * @param {AbortSignal} [signal]  前の検索を中断するためのシグナル
- * @returns {Promise<Person[]>}  最大7件。人間かつ生年を持つ人物のみ
+ * @returns {Promise<Candidate[]>}  最大7件。人間かつ生年または没年を持つ人物のみ。一致した別名を持つ
  * @throws {WikidataError}  通信失敗・タイムアウト・不正な応答のとき
  */
-export async function searchPeople(query, signal) {}
+export async function searchPeople(query, currentYear, signal) {}
 ```
 
 **依存関係**: `person-parser.js`、ブラウザの `fetch` / `AbortController`
@@ -165,7 +191,17 @@ export async function searchPeople(query, signal) {}
 
 **責務**:
 - `wbgetentities` のエンティティ1件をPersonに変換する
-- 人間(P31にQ5を含む)でない、または生年(P569)がないエンティティを除外する(`null` を返す)
+- 人間(P31にQ5を含む)でない、または生年(P569)も没年(P570)の日付もないエンティティを除外する(`null` を返す)。生年がなく没年がある人物は、生年不明(`birth: null`)のPersonにする
+- 職業(P106)に教育上の観点からフィルタリングする職業を含む人物を除外する(`null` を返す)。非推奨ランク以外のすべての値を見て、1つでも該当すれば除外する
+
+  | ID | 職業 |
+  |---|---|
+  | Q1079215 | AV女優 |
+  | Q8380347 | AV男優 |
+  | Q488111 | ポルノ俳優 |
+  | Q66382950 | ポルノ女優 |
+
+  職業が登録されていない人物は判定できずにすり抜ける。該当する職業が新たに見つかった場合は、`person-parser.js` の `FILTERED_OCCUPATION_IDS` にIDを追加する
 - 削除済み・存在しない項目(エンティティに `missing` プロパティがある)も除外する(`null` を返す)
 - 複数の値から使う値を選ぶ(下記アルゴリズム参照)
 
@@ -214,6 +250,9 @@ export function formatAxisYear(year) {}
 
 /** 描画・計算に使う代表年(天文学的年)を返す */
 export function representativeYear(yearValue) {}
+
+/** 生没年の表記(候補一覧用)。例: "1534年–1582年"、存命 "1960年–"、没年不明 "1100年–?"、生年不明 "?–248年" */
+export function formatLifespan(birth, death, lifeStatus) {}
 ```
 
 **依存関係**: なし
@@ -232,9 +271,37 @@ export function representativeYear(yearValue) {}
  * @returns {Comparison}
  */
 export function comparePeople(a, b, currentYear) {}
+
+/** 生存期間の天文学的年 { startAstroYear, endAstroYear }(生年不明は startAstroYear、没年不明は endAstroYear が null) */
+export function lifespanOf(person, currentYear) {}
 ```
 
 **依存関係**: `years.js`
+
+### src/logic/timeline-scale.js(ロジックレイヤー)
+
+**責務**:
+- タイムラインの表示範囲・目盛り間隔・目盛り一覧の計算(アルゴリズムA6)
+- 描画用の期間の決定(没年不明は仮の描画終了年、生年不明は仮の描画開始年を使う)
+
+描画(`timeline-view.js`)から計算を切り離し、A6をユニットテストできるようにするためロジックレイヤーに置く。
+
+**インターフェース**:
+```javascript
+/** 描画用の期間 { startAstroYear, endAstroYear, isTentativeStart, isTentativeEnd } */
+export function drawSpanOf(person, currentYear) {}
+
+/** 表示範囲 { rangeStart, rangeEnd }(天文学的年) */
+export function computeTimeRange(spans) {}
+
+/** 目盛りの間隔(年) */
+export function chooseTickStep(range) {}
+
+/** 目盛りの一覧 [{ astroYear, label }] */
+export function computeTicks(range) {}
+```
+
+**依存関係**: `comparison.js`、`years.js`
 
 ### src/ui/person-input.js(UIレイヤー)
 
@@ -249,7 +316,10 @@ export function comparePeople(a, b, currentYear) {}
 /**
  * @param {HTMLElement} container  入力欄を描画する要素
  * @param {Object} options
+ * @param {string} options.label  例: "1人目"。aria-label(「1人目の名前」「1人目をクリア」)に使う
  * @param {string} options.placeholder  例: "1人目の名前"
+ * @param {number} options.slotNumber  入力欄の番号(1始まり)。要素のIDと色の区別に使う
+ * @param {number} options.currentYear  候補の存命判定に使う現在の年
  * @param {(person: Person|null) => void} options.onChange  選択・クリア時に呼ばれる
  * @returns {{ setPerson: (person: Person|null) => void }}  P1のURL共有で外から値を設定するため
  */
@@ -267,15 +337,17 @@ export function createPersonInput(container, options) {}
 **インターフェース**:
 ```javascript
 /**
- * @param {SVGSVGElement} svg
- * @param {Person[]} people  選択済みの人物(nullを除いたもの)
+ * @param {SVGSVGElement} svg  表示された状態で渡す(文字の幅を測るため)
+ * @param {(Person|null)[]} slots  AppState.slots(未選択はnull)。欄の番号で線の色を決める
  * @param {number} currentYear
  * @param {number} width  描画幅(px)。コンテナの幅から算出
  */
-export function renderTimeline(svg, people, currentYear, width) {}
+export function renderTimeline(svg, slots, currentYear, width) {}
 ```
 
-**依存関係**: `years.js`
+`slots` をそのまま受け取るのは、2人目だけを選んだときも2人目の色(オレンジ)で描くため。
+
+**依存関係**: `timeline-scale.js`、`comparison.js`(重なり区間)、`years.js`、内部モジュール `src/ui/timeline/person-row.js`(人物の行の描画)・`src/ui/timeline/svg.js`(SVG要素の作成)
 
 ### src/ui/result-view.js(UIレイヤー)
 
@@ -287,10 +359,10 @@ export function renderTimeline(svg, people, currentYear, width) {}
 ```javascript
 /**
  * @param {HTMLElement} container
- * @param {Person[]} people
+ * @param {(Person|null)[]} slots  AppState.slots(未選択はnull)
  * @param {number} currentYear
  */
-export function renderResult(container, people, currentYear) {}
+export function renderResult(container, slots, currentYear) {}
 ```
 
 **依存関係**: `comparison.js`、`years.js`
@@ -320,8 +392,8 @@ sequenceDiagram
     User->>Input: 「信長」と入力
     Input->>Input: 0.3秒待つ(その間の入力で待ち直し)
     Input->>Input: 前の検索があれば中断
-    Input->>Client: searchPeople("信長", signal)
-    Client->>API: wbsearchentities(search=信長, language=ja, limit=10)
+    Input->>Client: searchPeople("信長", currentYear, signal)
+    Client->>API: wbsearchentities(search=信長, language=ja, limit=20)
     API-->>Client: 候補ID一覧
     Client->>API: wbgetentities(ids=Q...|Q..., props=labels|descriptions|claims)
     API-->>Client: エンティティ一覧
@@ -338,8 +410,9 @@ sequenceDiagram
 **フロー説明**:
 1. 入力が止まってから0.3秒後に検索を開始する。入力が空(空白のみ)なら検索せず候補一覧を閉じる
 2. 新しい検索を始めるとき、実行中の古い検索は `AbortController` で中断する。古い応答が後から届いて候補を上書きすることを防ぐ
-3. `wbsearchentities` で最大10件のIDを取得し、`wbgetentities` で詳細を1回でまとめて取得する
-4. 人間でない・生年がないエンティティを除外し、検索結果の順番を保ったまま最大7件を表示する
+3. `wbsearchentities` で最大20件のIDを取得し、`wbgetentities` で詳細を1回でまとめて取得する(名字の項目などが上位を占めても、除外後に候補が残るようにするため)
+4. 人間でない・教育上の観点からフィルタリングする職業を持つ・生年も没年もないエンティティを除外し、検索結果の順番を保ったまま最大7件を表示する
+   - `wbsearchentities` の応答の `match.type` が `alias` の候補は、一致した別名(`match.text`)を「(別名: ○○)」として表示する。`wbsearchentities` はラベルだけでなく別名にも一致するため(例: 「豊臣」で天草四郎が別名「豊臣秀綱」で一致する)
 5. 候補を選ぶと入力欄に人物名が確定し、`onChange` で状態が更新される
 
 ### UC2: 2人を比較する
@@ -351,9 +424,9 @@ sequenceDiagram
     participant Result as result-view
     participant Comp as comparison
 
-    App->>Timeline: renderTimeline(svg, people, currentYear, width)
+    App->>Timeline: renderTimeline(svg, slots, currentYear, width)
     Timeline-->>App: SVGを描画
-    App->>Result: renderResult(container, people, currentYear)
+    App->>Result: renderResult(container, slots, currentYear)
     alt 2人選択済み
         Result->>Comp: comparePeople(a, b, currentYear)
         Comp-->>Result: Comparison
@@ -409,7 +482,7 @@ GET https://www.wikidata.org/w/api.php
   &language=ja
   &uselang=ja
   &type=item
-  &limit=10
+  &limit=20
   &format=json
   &origin=*
 ```
@@ -418,7 +491,10 @@ GET https://www.wikidata.org/w/api.php
 ```json
 {
   "search": [
-    { "id": "Q171411", "label": "織田信長", "description": "日本の戦国大名" }
+    { "id": "Q171411", "label": "織田信長", "description": "日本の戦国大名",
+      "match": { "type": "label", "language": "ja", "text": "織田信長" } },
+    { "id": "Q452628", "label": "天草四郎", "description": "日本のキリシタン",
+      "match": { "type": "alias", "language": "ja", "text": "豊臣秀綱" } }
   ]
 }
 ```
@@ -430,7 +506,7 @@ GET https://www.wikidata.org/w/api.php
   ?action=wbgetentities
   &ids={ID1}|{ID2}|...
   &props=labels|descriptions|claims
-  &languages=ja|en        # enは日本語ラベルがない人物の英語ラベル取得のため
+  &languages=ja|mul|en    # mul(全言語共通ラベル)・enは日本語ラベルがない人物の表示名のため
   &format=json
   &origin=*
 ```
@@ -476,7 +552,7 @@ GET https://www.wikidata.org/w/api.php
 2. `preferred` ランクの値があれば、その中の先頭を使う
 3. なければ残りのうち、Wikidataの応答の配列で先頭にある値を使う
 4. 選んだ値の `snaktype` が `value` 以外の場合:
-   - 生年 → 生年データなしとして人物を除外する
+   - 生年 → 生年データなしとして扱う。没年に日付の値があれば生年不明の人物(`birth: null`)とし、なければ人物を除外する
    - 没年が `somevalue`(不明な値)→ lifeStatus を `'unknown'` にする
    - 没年が `novalue` → 没年データなしとして扱う(存命判定へ)
 
@@ -488,7 +564,7 @@ GET https://www.wikidata.org/w/api.php
 - `-` のとき負数にする(`-0551` → `-551` = 前551年)
 - 年が0になる場合は不正な値として `null` を返す(その人物は生年データなしとして除外、没年なら没年データなしとして扱う)
 - 精度から `precision` を決める(9以上 → `'year'`、8 → `'decade'`、7以下 → `'century'`)
-- `'decade'` のときは10の倍数に切り下げる(1534 → 1530)
+- `'decade'` のときは絶対値が小さい側の10の倍数に切り捨てる(1534 → 1530、前551 → 前550)。前1〜前9年の年代は切り捨てると0年になるため、`'century'` として扱う
 
 ### A3: 年の変換と年数の計算
 
@@ -538,15 +614,22 @@ export function yearsBetween(fromYear, toYear) {
 | century, 紀元後 | `{century}世紀頃` | 6世紀頃 |
 | century, 紀元前 | `前{century}世紀頃` | 前6世紀頃 |
 
-候補一覧の生没年は、あいまいな年も上記の表記を使う。存命は `(1960年–)`、没年不明は `(1100年–?)` のように表示する。
+候補一覧の生没年は、あいまいな年も上記の表記を使う。存命は `(1960年–)`、没年不明は `(1100年–?)`、生年不明は `(?–248年)` のように表示する。タイムラインの線の端とスクリーンリーダー向けの要約では、生年不明の生年を「生年不明」と表記する。
 例: `孔子(前551年–前479年)`、`雪舟(1420年–1506年)`
 
 ### A5: 2人の比較
 
 **目的**: Comparisonを算出する
 
-**ステップ1: 判定不可の確認**
-- どちらかの lifeStatus が `'unknown'` → `kind: 'undetermined'` を返す
+**ステップ1: 判定不可・生年不明の確認**
+- 没年不明(lifeStatus が `'unknown'`)の人物がおらず、生年不明の人物が1人だけ → ステップ1-2へ
+- それ以外で、没年不明または生年不明の人物がいる → `kind: 'undetermined'` を返す(`unknownPeople` に没年不明、`unknownBirthPeople` に生年不明の人物)
+
+**ステップ1-2: 生年不明の人物(X)と相手(Y)の比較**
+- Yの生年の代表年 > Xの没年の代表年 → `kind: 'gap'`(elder = X、younger = Y、`gapYears` = Yの生年 − Xの没年)
+- Xの没年 − Yの終了年(没年、存命なら `currentYear`)> 120 → `kind: 'gap'`(elder = Y、younger = X、`gapYears: null`、`deathGapYears` = Xの没年 − Yの終了年)。人の寿命は長くても120年程度(存命の判定と同じ目安 `MAX_LIFESPAN_YEARS`)のため、XはYの死後に生まれている
+- それ以外 → `kind: 'undetermined'`(`unknownBirthPeople: [X]`)
+- Yの生年がXの没年と同じ年の場合は、判定不可とする。生年がわかる2人の「重なり0年」と違い、Xがその年まで生きていた保証がないため(没年の月日を考慮しない)
 
 **ステップ2: 終了年の決定(天文学的年)**
 - `'deceased'` → 没年の代表年
@@ -584,9 +667,13 @@ if (overlapStart <= overlapEnd) {
 | 重なりあり、ageAtBirth = 0 | 続けて `2人は同じ年に生まれました` |
 | 重なりあり、youngerが存命かつelderも存命 | 終了年の部分を `{開始年}から現在までの約{overlapYears}年間、同じ時代を生きています` にする |
 | 重なりなし | `{elder}が亡くなってから約{gapYears}年後に、{younger}が生まれました` |
-| 重なりなし、gapYears = 0 | `{elder}が亡くなった年に、{younger}が生まれました` |
-| 判定不可 | `{没年不明の人物}の没年が不明なため、同じ時代かどうかを判定できません` |
+| 重なりなし、gapYears = null(youngerが生年不明) | `{elder}が亡くなってから約{deathGapYears}年後に{younger}が亡くなっており、同じ時代ではありません({younger}の生年は不明です)` |
+| 判定不可(没年不明) | `{没年不明の人物}の没年が不明なため、同じ時代かどうかを判定できません`(2人とも没年不明なら「AとBの没年が不明なため…」) |
+| 判定不可(生年不明) | `{生年不明の人物}の生年が不明なため、同じ時代かどうかを判定できません`(2人とも生年不明なら「AとBの生年が不明なため…」) |
+| 判定不可(生年不明と没年不明) | `{生年不明の人物}の生年と{没年不明の人物}の没年が不明なため、同じ時代かどうかを判定できません` |
 | approximate = true | 最後に `※生没年があいまいな人物を含むため、目安です` を添える |
+
+先の人物が亡くなった年に後の人物が生まれた場合は、`overlapStart <= overlapEnd` を満たすため「重なりあり、overlapYears = 0」になる(例: ガリレオ・ガリレイ(1564–1642)とアイザック・ニュートン(1642–1727))。そのため「重なりなし」の `gapYears` は、null(生年不明)でなければ常に1以上になる。
 
 年は A4 の表記(紀元前は「前○年」)で表示する。存命の場合の「現在」は `currentYear`(閲覧時の年)。
 
@@ -600,7 +687,7 @@ if (overlapStart <= overlapEnd) {
 **目的**: 選択済みの人物がすべて収まり、目盛りが読みやすい範囲を決める
 
 **ステップ1: データの範囲**(天文学的年)
-- `minYear` = 全員の生年の代表年の最小値
+- `minYear` = 全員の開始年の最小値(生年の代表年。生年不明は `没年 − 50` を仮の描画開始年とする)
 - `maxYear` = 全員の終了年の最大値(存命は `currentYear`、没年不明は `生年 + 50` を仮の描画終了年とする)
 
 **ステップ2: 余白**
@@ -611,7 +698,7 @@ if (overlapStart <= overlapEnd) {
 **ステップ3: 目盛り間隔**
 - 候補 `[1, 2, 5, 10, 20, 25, 50, 100, 200, 250, 500, 1000]` のうち、表示範囲内の目盛りが最大8本になる最小の間隔を選ぶ
 - 最大の候補(1000)でも8本を超える場合は1000を使い、8本を超えることを許容する
-- 目盛りは天文学的年が間隔の倍数になる位置に置き、ラベルは `formatAxisYear` で歴史的年に変換して表示する
+- 目盛りは歴史的年が間隔の倍数になる位置に置き(0年は飛ばす)、ラベルは `formatAxisYear` で表示する。天文学的年の倍数に置くと、紀元前のラベルが「前501」「前1」のように半端になるため
 
 **ステップ4: 座標変換**
 - `x = marginLeft + (astroYear - rangeStart) / (rangeEnd - rangeStart) * plotWidth`
@@ -652,6 +739,7 @@ if (overlapStart <= overlapEnd) {
 |------|------|-------------|
 | 名前 | Personのlabel | 太字 |
 | 生没年 | 生年–没年 | `(1534年–1582年)`、存命は `(1960年–)`、没年不明は `(1100年–?)` |
+| 別名 | Candidateの `matchedAlias` | `(別名: 豊臣秀綱)`。小さめの灰色文字。別名で一致したときのみ |
 | 説明 | Personのdescription | 小さめの灰色文字。空なら省略 |
 
 **操作**:
@@ -678,8 +766,9 @@ if (overlapStart <= overlapEnd) {
 | 存命 | 線の右端(現在の年)を矢印の形にする。没年の位置に「存命」と表示 |
 | あいまいな年 | その端から線の長さの10%(最低20px)の区間を点線にする |
 | 没年不明 | 生年から仮の描画終了年までを点線で描き、右端に「没年不明」と表示 |
+| 生年不明 | 仮の描画開始年(没年 − 50年)から没年までを点線で描き、左端に「生年不明」と表示 |
 
-**複数の表現が重なる場合**: 没年不明の人物は線全体が点線になるため、あいまいな年の端の点線は重ねて適用しない(生年があいまいな場合は、生年の表記「6世紀頃」だけで表す)。存命の矢印とあいまいな生年の点線は、両端で別々に適用する。
+**複数の表現が重なる場合**: 没年不明・生年不明の人物は線全体が点線になるため、あいまいな年の端の点線は重ねて適用しない(生年があいまいな場合は、生年の表記「6世紀頃」だけで表す)。存命の矢印とあいまいな生年の点線は、両端で別々に適用する。
 
 ### カラーコーディング
 
@@ -725,6 +814,7 @@ if (overlapStart <= overlapEnd) {
 | エラー種別 | 処理 | ユーザーへの表示 |
 |-----------|------|-----------------|
 | 候補0件(検索結果なし、または条件に合う人物なし) | 候補一覧に表示 | 「該当する人物が見つかりませんでした」 |
+| 候補0件で、検索語が2文字以下 | 候補一覧に表示。1文字の検索では人物以外の項目が上位を占めやすいため、続けて入力するよう案内する | 「該当する人物が見つかりませんでした。名前をもう少し長く入力してみてください」 |
 | 通信失敗(ネットワーク、HTTPエラー、APIの`error`) | 候補一覧に表示。選択済みの人物とタイムラインはそのまま保つ | 「データを取得できませんでした。時間をおいて試してください」 |
 | タイムアウト(10秒) | 通信失敗と同じ | 同上 |
 | 検索の中断(新しい入力による) | 何もしない(エラーとして扱わない) | なし |
@@ -743,7 +833,7 @@ if (overlapStart <= overlapEnd) {
 
 - `years.js`: 天文学的年の変換、`yearsBetween`(紀元前をまたぐケース)、表記(年・年代・世紀、紀元前・紀元後)、代表年
 - `person-parser.js`: 年の読み取り(紀元前、精度、0年)、ランクによる値の選択、`somevalue` / `novalue`、存命判定、ラベルのフォールバック、人間でない・生年なし・`missing` の除外
-- `comparison.js`: 重なりあり・なし・判定不可、同年生まれ、重なり0年、存命人物を含む比較、あいまいな年を含む比較、紀元前の人物同士の比較
+- `comparison.js`: 重なりあり・なし・判定不可、同年生まれ、重なり0年、存命人物を含む比較、あいまいな年を含む比較、紀元前の人物同士の比較、生年不明の人物を含む比較(没年より後に生まれた相手、寿命の目安より前に亡くなった相手、それ以外の判定不可)
 
 ### 手動テスト(ブラウザでの動作確認)
 - PRDの受け入れ条件に沿ったチェックリストで確認する

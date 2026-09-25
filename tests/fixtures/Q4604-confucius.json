@@ -1,0 +1,98 @@
+{
+  "id": "Q4604",
+  "labels": {
+    "ja": {
+      "value": "孔子"
+    },
+    "en": {
+      "value": "Confucius"
+    }
+  },
+  "descriptions": {
+    "ja": {
+      "value": "中国の思想家"
+    },
+    "en": {
+      "value": "5th-century BCE Chinese philosopher and politician"
+    }
+  },
+  "claims": {
+    "P31": [
+      {
+        "mainsnak": {
+          "snaktype": "value",
+          "datavalue": {
+            "value": {
+              "id": "Q5"
+            }
+          }
+        },
+        "rank": "normal"
+      }
+    ],
+    "P569": [
+      {
+        "mainsnak": {
+          "snaktype": "value",
+          "datavalue": {
+            "value": {
+              "time": "-0552-10-09T00:00:00Z",
+              "precision": 11
+            }
+          }
+        },
+        "rank": "normal"
+      },
+      {
+        "mainsnak": {
+          "snaktype": "value",
+          "datavalue": {
+            "value": {
+              "time": "-0551-10-04T00:00:00Z",
+              "precision": 11
+            }
+          }
+        },
+        "rank": "normal"
+      },
+      {
+        "mainsnak": {
+          "snaktype": "value",
+          "datavalue": {
+            "value": {
+              "time": "-0551-00-00T00:00:00Z",
+              "precision": 9
+            }
+          }
+        },
+        "rank": "preferred"
+      }
+    ],
+    "P570": [
+      {
+        "mainsnak": {
+          "snaktype": "value",
+          "datavalue": {
+            "value": {
+              "time": "-0479-03-09T00:00:00Z",
+              "precision": 11
+            }
+          }
+        },
+        "rank": "normal"
+      },
+      {
+        "mainsnak": {
+          "snaktype": "value",
+          "datavalue": {
+            "value": {
+              "time": "-0479-00-00T00:00:00Z",
+              "precision": 9
+            }
+          }
+        },
+        "rank": "preferred"
+      }
+    ]
+  }
+}

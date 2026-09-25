@@ -13,10 +13,14 @@ ijin-timeline/
 │   ├── ui/                    # UIレイヤー
 │   │   ├── person-input.js
 │   │   ├── timeline-view.js
-│   │   └── result-view.js
+│   │   ├── result-view.js
+│   │   └── timeline/          # timeline-view.js を分割した内部モジュール
+│   │       ├── person-row.js  # 人物1人分の行(名前・線・生没年)の描画
+│   │       └── svg.js         # SVG要素の作成・文字幅の計測
 │   ├── logic/                 # ロジックレイヤー
 │   │   ├── years.js
-│   │   └── comparison.js
+│   │   ├── comparison.js
+│   │   └── timeline-scale.js
 │   └── data/                  # データレイヤー
 │       ├── wikidata-client.js
 │       └── person-parser.js
@@ -82,6 +86,7 @@ ijin-timeline/
 - `person-input.js`: 入力欄・候補一覧(オートコンプリート)
 - `timeline-view.js`: SVGタイムラインの描画
 - `result-view.js`: 比較結果の文章の表示
+- `timeline/`: `timeline-view.js` が300行を超えたため分割した内部モジュール(`person-row.js`、`svg.js`)。部品が大きくなったときは、部品名のサブディレクトリに分割する
 
 **命名規則**:
 - 入力を受け付ける部品: `[対象]-input.js`
@@ -99,6 +104,7 @@ ijin-timeline/
 **配置ファイル**:
 - `years.js`: 天文学的年との変換、年数計算、年・年代・世紀の表記
 - `comparison.js`: 重なり・年齢関係・空白期間の計算
+- `timeline-scale.js`: タイムラインの表示範囲・目盛りの計算
 
 **命名規則**:
 - 扱う対象の名詞(複数形または名詞形)、kebab-case
@@ -134,9 +140,11 @@ ijin-timeline/
 tests/unit/
 ├── logic/
 │   ├── years.test.js
-│   └── comparison.test.js
+│   ├── comparison.test.js
+│   └── timeline-scale.test.js
 └── data/
-    └── person-parser.test.js
+    ├── person-parser.test.js
+    └── wikidata-client.test.js
 ```
 
 **命名規則**:
@@ -179,7 +187,7 @@ node --test 'tests/**/*.test.js'
 - `repository-structure.md`: リポジトリ構造定義書(本ドキュメント)
 - `development-guidelines.md`: 開発ガイドライン
 - `glossary.md`: 用語集
-- `manual-test-checklist.md`: 手動テストのチェックリストと検証用20人の一覧(実装時に作成)
+- `manual-test-checklist.md`: 手動テストのチェックリストと検証用20人の一覧
 - `ideas/`: 壁打ち・アイデアメモ(正式な仕様ではない)
 
 `docs/` もGitHub Pagesで公開されるが、秘密情報を含まないため問題ない。
@@ -252,7 +260,7 @@ src/data/  →  src/logic/
 - `src/logic/` → `src/data/`、`src/ui/`(❌)
 - `src/data/` → `src/ui/`(❌)
 - `src/ui/` → `src/app.js`(❌)
-- `src/ui/` 内のファイル同士(❌)
+- `src/ui/` 内のファイル同士(❌)。ただし、部品を分割したサブディレクトリ(例: `src/ui/timeline/`)は、その部品(`timeline-view.js`)と同じサブディレクトリ内のファイルからのみ import してよい
 
 ### 循環依存の禁止
 
@@ -276,7 +284,7 @@ src/data/  →  src/logic/
 ### ファイルサイズの管理
 
 - 1ファイル300行以下を目安とする
-- `timeline-view.js` が300行を超えた場合は、描画要素ごと(目盛り、人物の線、重なり区間)に分割する
+- `timeline-view.js` が300行を超えたため、人物の行の描画を `src/ui/timeline/person-row.js`、SVGの補助関数を `src/ui/timeline/svg.js` に分割した。今後さらに大きくなった場合も、描画要素ごと(目盛り、重なり区間、出来事など)に `src/ui/timeline/` へ切り出す
 
 ## 特殊ディレクトリ
 
@@ -312,27 +320,11 @@ src/data/  →  src/logic/
 
 ### .gitignore
 
-テンプレートから引き継いだ `.gitignore` を使う。主な除外対象:
+主な除外対象:
 - OS・エディタのファイル: `.DS_Store`、`Thumbs.db`、`.vscode/`、`.idea/`
 - ログ・一時ファイル: `*.log`、`tmp/`
 - 環境変数: `.env`
 - Claude Codeの個人設定: `.claude/settings.local.json`
-- テンプレート由来で本構成では生成されないもの: `node_modules/`、`dist/`、`coverage/` など
+- 開発者個人の手順メモ: `使い方メモ.txt`
 
 `.steering/` は除外しない(作業の履歴としてコミットする)。
-
-## テンプレートから削除するファイル
-
-本プロジェクトはTypeScript・npmを使わないため、テンプレートから引き継いだ以下のファイルは使用しない。MVPの実装が完了した後、最後の作業でまとめて削除する(それまでは残しておくが、参照・更新はしない)。
-
-| ファイル・ディレクトリ | 削除理由 |
-|---------------------|---------|
-| `package.json`、`package-lock.json` | npmを使わない |
-| `tsconfig.json` | TypeScriptを使わない |
-| `vitest.config.ts` | テストは `node --test` で行う |
-| `eslint.config.js`、`.prettierrc`、`.prettierignore` | リンター・フォーマッターを導入しない |
-| `.husky/` | Gitフックを使わない(npmが必要) |
-| `src/example.ts`、`src/example.test.ts` | テンプレートのサンプル |
-| `mvp-log.json` | テンプレートに含まれていた別プロダクト(TaskCLI)の実行ログ |
-
-あわせて、`.gitignore` のうち本構成で使わない項目(`node_modules/`、`*.tsbuildinfo` など)も整理する。

@@ -1,10 +1,11 @@
 {
-  "name": "claude-code-book-template",
+  "name": "ijin-timeline",
   "image": "mcr.microsoft.com/devcontainers/base:bookworm",
   "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
   "features": {
     "ghcr.io/devcontainers/features/node:1": {},
-    "ghcr.io/devcontainers/features/github-cli:1": {}
-  },
-  "postCreateCommand": ".devcontainer/post_create.sh"
+    "ghcr.io/devcontainers/features/python:1": {},
+    "ghcr.io/devcontainers/features/github-cli:1": {},
+    "ghcr.io/anthropics/devcontainer-features/claude-code:1.0": {}
+  }
 }

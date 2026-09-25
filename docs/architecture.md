@@ -13,7 +13,7 @@
 | HTML / CSS | HTML Living Standard | 画面の構造とスタイル |
 | JavaScript | ES2022(ES Modules) | アプリケーションのロジック |
 | Node.js | v24系(devcontainer同梱) | ユニットテストの実行のみ(組み込みテストランナー) |
-| Python 3 | 3.11系(devcontainer同梱) | ローカル開発サーバーのみ(`http.server`) |
+| Python 3 | 3系(devcontainerの `python` featureで導入) | ローカル開発サーバーのみ(`http.server`) |
 
 **選定理由**:
 - **JavaScript(ES Modules)**
@@ -22,7 +22,7 @@
   - 型はJSDocで記述し、エディタ(VS Code)の補完と型チェックの恩恵を受ける
 - **TypeScriptを使わない理由**: ブラウザが直接実行できず、ビルド工程とnpmパッケージが必要になるため
 - **Node.js(テストのみ)**: 組み込みの `node:test` と `node:assert` で、npmパッケージなしにユニットテストを実行できる。Node.js v24はES Modules構文を自動判別するため、`package.json` も不要
-- **Python 3(開発サーバーのみ)**: ES Modulesは `file://` では読み込めないため、ローカル確認用のHTTPサーバーが必要。`python3 -m http.server` はインストール不要で使える
+- **Python 3(開発サーバーのみ)**: ES Modulesは `file://` では読み込めないため、ローカル確認用のHTTPサーバーが必要。`python3 -m http.server` はPythonの標準機能で使える。ベースイメージのPythonは最小構成(`python3-minimal`)で `http.server` を含まないため、devcontainerの `python` featureで標準のPythonを入れる
 
 ### フレームワーク・ライブラリ
 
@@ -57,7 +57,8 @@
 │  timeline-view.js / result-view.js       │
 ├─────────────────────────────────────────┤
 │ ロジックレイヤー                           │ ← 年の計算・表記、2人の比較(純粋な関数)
-│  years.js / comparison.js                │
+│  years.js / comparison.js /              │
+│  timeline-scale.js                       │
 ├─────────────────────────────────────────┤
 │ データレイヤー                             │ ← Wikidataからの取得とPersonへの変換
 │  wikidata-client.js / person-parser.js   │
@@ -136,8 +137,8 @@ graph LR
 | 1回の検索での通信 | 2リクエスト | 候補検索1回+詳細取得1回(機能設計書のUC1・API設計) | 開発者ツールのネットワークタブで、1回の入力に対するWikidataへのリクエスト数を数える |
 
 ### 実現方法
-- ビルドなしでも読み込みが速いよう、JavaScriptファイルは機能設計書の8ファイル程度に留める
-- `wbgetentities` の `props` を `labels|descriptions|claims`、`languages` を `ja|en` に絞り、不要なデータを取得しない
+- ビルドなしでも読み込みが速いよう、JavaScriptファイルは機能設計書の9ファイル程度に留める
+- `wbgetentities` の `props` を `labels|descriptions|claims`、`languages` を `ja|mul|en` に絞り、不要なデータを取得しない
 - 古い検索は `AbortController` で中断し、無駄な通信と描画をしない
 
 ## セキュリティアーキテクチャ
@@ -187,7 +188,7 @@ graph LR
 ### ユニットテスト
 - **フレームワーク**: Node.js組み込みの `node:test` と `node:assert/strict`
 - **実行コマンド**: `node --test 'tests/**/*.test.js'`
-- **対象**: `years.js`、`comparison.js`、`person-parser.js`(DOMに依存しない関数すべて)
+- **対象**: `years.js`、`comparison.js`、`timeline-scale.js`、`person-parser.js`、`wikidata-client.js`(`fetch` を差し替えて確認)
 - **テストデータ**: Wikidataの実際の応答を元にした最小限のJSONを `tests/fixtures/` に置く(織田信長、孔子、存命人物、年代・世紀精度の人物など)
 - **カバレッジ目標**: 機能設計書のアルゴリズム A1〜A6 の各分岐を最低1ケースずつ通す。カバレッジ計測ツールは導入しない
 
@@ -212,12 +213,12 @@ graph LR
 - インターネット接続(Wikidataへの通信が必要)
 
 **開発者側**:
-- devcontainer(Node.js v24系、Python 3.11系が入っていること)
+- devcontainer(`.devcontainer/devcontainer.json` の featureで Node.js、Python 3、GitHub CLI、Claude Code を導入)
 - 追加のインストールは不要
 
 ### パフォーマンス制約
 - Wikidata APIの応答速度に依存する。混雑時に1秒の目標を超える可能性がある(PRDの今後の検討事項としてプロトタイプで検証する)
-- 1回の検索で `wbgetentities` に渡すIDは最大10件(APIの上限50件の範囲内)
+- 1回の検索で `wbgetentities` に渡すIDは最大20件(APIの上限50件の範囲内)
 
 ### セキュリティ制約
 - 通信先はWikidataのみ(CSPの `connect-src` で制限)
@@ -237,4 +238,4 @@ graph LR
 | Node.js | 開発時(テストのみ) | devcontainerのバージョンに従う。`node:test` の基本機能のみを使う |
 | Python 3 | 開発時(サーバーのみ) | devcontainerのバージョンに従う |
 
-`package.json` は作成しない。テンプレートから引き継いだツール設定ファイルは使用せず、MVPの実装完了後にまとめて削除する(対象ファイルの一覧は `docs/repository-structure.md` の「テンプレートから削除するファイル」を正とする)。
+`package.json` は作成しない。テンプレートから引き継いだツール設定ファイルは、MVPの実装完了時に削除した。

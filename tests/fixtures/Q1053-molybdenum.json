@@ -1,0 +1,48 @@
+{
+  "id": "Q1053",
+  "labels": {
+    "en": {
+      "value": "molybdenum"
+    },
+    "ja": {
+      "value": "モリブデン"
+    },
+    "mul": {
+      "value": "Mo"
+    }
+  },
+  "descriptions": {
+    "en": {
+      "value": "chemical element with symbol Mo and atomic number 42"
+    },
+    "ja": {
+      "value": "原子番号42の元素"
+    }
+  },
+  "claims": {
+    "P31": [
+      {
+        "mainsnak": {
+          "snaktype": "value",
+          "datavalue": {
+            "value": {
+              "id": "Q11344"
+            }
+          }
+        },
+        "rank": "normal"
+      },
+      {
+        "mainsnak": {
+          "snaktype": "value",
+          "datavalue": {
+            "value": {
+              "id": "Q21073023"
+            }
+          }
+        },
+        "rank": "normal"
+      }
+    ]
+  }
+}

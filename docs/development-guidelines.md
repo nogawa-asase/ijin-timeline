@@ -163,7 +163,7 @@ export class WikidataError extends Error {
 ```javascript
 // src/ui/person-input.js
 try {
-  const people = await searchPeople(query, controller.signal);
+  const people = await searchPeople(query, currentYear, controller.signal);
   showCandidates(people);
 } catch (error) {
   if (error.name === 'AbortError') {
@@ -400,7 +400,7 @@ devcontainerに含まれているため、追加のインストールは不要�
 | ツール | バージョン | 用途 |
 |--------|-----------|------|
 | Node.js | v24系 | ユニットテストの実行 |
-| Python 3 | 3.11系 | ローカル開発サーバー |
+| Python 3 | 3系(`python` feature) | ローカル開発サーバー |
 | Git / GitHub CLI | devcontainer同梱 | バージョン管理 |
 
 ### セットアップ手順

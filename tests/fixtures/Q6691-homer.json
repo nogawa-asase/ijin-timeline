@@ -1,0 +1,84 @@
+{
+  "id": "Q6691",
+  "labels": {
+    "en": {
+      "value": "Homer"
+    },
+    "ja": {
+      "value": "ホメーロス"
+    }
+  },
+  "descriptions": {
+    "en": {
+      "value": "reputed author of the Iliad and the Odyssey"
+    },
+    "ja": {
+      "value": "紀元前8世紀末のアオイドス（吟遊詩人）"
+    }
+  },
+  "claims": {
+    "P31": [
+      {
+        "mainsnak": {
+          "snaktype": "value",
+          "datavalue": {
+            "value": {
+              "id": "Q21070568"
+            }
+          }
+        },
+        "rank": "preferred"
+      },
+      {
+        "mainsnak": {
+          "snaktype": "value",
+          "datavalue": {
+            "value": {
+              "id": "Q5"
+            }
+          }
+        },
+        "rank": "normal"
+      },
+      {
+        "mainsnak": {
+          "snaktype": "value",
+          "datavalue": {
+            "value": {
+              "id": "Q3375719"
+            }
+          }
+        },
+        "rank": "normal"
+      }
+    ],
+    "P569": [
+      {
+        "mainsnak": {
+          "snaktype": "value",
+          "datavalue": {
+            "value": {
+              "time": "-0900-00-00T00:00:00Z",
+              "precision": 7
+            }
+          }
+        },
+        "rank": "normal"
+      }
+    ],
+    "P570": [
+      {
+        "mainsnak": {
+          "snaktype": "value",
+          "datavalue": {
+            "value": {
+              "time": "-0800-00-00T00:00:00Z",
+              "precision": 7
+            }
+          }
+        },
+        "rank": "normal"
+      }
+    ]
+  }
+}
