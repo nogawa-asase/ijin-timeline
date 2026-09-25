@@ -41,6 +41,21 @@ function timeClaim(time, rank = 'normal', precision = 11) {
   return { mainsnak: { snaktype: 'value', datavalue: { value: { time, precision } } }, rank };
 }
 
+/**
+ * 項目を値に持つclaimを作る(職業など)。
+ * @param {string} id
+ * @param {string} [rank]
+ */
+function itemClaim(id, rank = 'normal') {
+  return { mainsnak: { snaktype: 'value', datavalue: { value: { id } } }, rank };
+}
+
+// 教育上の観点からフィルタリングする職業の例: Q1079215(AV女優)
+const FILTERED_OCCUPATION_ID = 'Q1079215';
+// Q82955: 政治家
+const POLITICIAN_ID = 'Q82955';
+const BIRTH_CLAIMS = { P569: [timeClaim('+1971-01-01T00:00:00Z')] };
+
 describe('parseYearValue', () => {
   it('紀元後の年を読み取る', () => {
     assert.deepEqual(parseYearValue('+1534-06-23T00:00:00Z', 11), { year: 1534, precision: 'year' });
@@ -168,6 +183,32 @@ describe('parsePerson', () => {
   it('生年の年が0の人物はnullを返す', () => {
     const entity = createEntity({ P569: [timeClaim('+0000-00-00T00:00:00Z')] });
     assert.equal(parsePerson(entity, CURRENT_YEAR), null);
+  });
+
+  it('教育上の観点からフィルタリングする職業の人物はnullを返す', () => {
+    const entity = createEntity({ ...BIRTH_CLAIMS, P106: [itemClaim(FILTERED_OCCUPATION_ID)] });
+    assert.equal(parsePerson(entity, CURRENT_YEAR), null);
+  });
+
+  it('複数の職業のうち1つでも教育上の観点からフィルタリングする職業ならnullを返す', () => {
+    const entity = createEntity({
+      ...BIRTH_CLAIMS,
+      P106: [itemClaim(POLITICIAN_ID), itemClaim(FILTERED_OCCUPATION_ID)],
+    });
+    assert.equal(parsePerson(entity, CURRENT_YEAR), null);
+  });
+
+  it('教育上の観点からフィルタリングする職業でない人物はPersonに変換する', () => {
+    const entity = createEntity({ ...BIRTH_CLAIMS, P106: [itemClaim(POLITICIAN_ID)] });
+    assert.equal(parsePerson(entity, CURRENT_YEAR)?.id, 'Q1');
+  });
+
+  it('教育上の観点からフィルタリングする職業が非推奨ランクならPersonに変換する', () => {
+    const entity = createEntity({
+      ...BIRTH_CLAIMS,
+      P106: [itemClaim(FILTERED_OCCUPATION_ID, 'deprecated')],
+    });
+    assert.equal(parsePerson(entity, CURRENT_YEAR)?.id, 'Q1');
   });
 
   it('削除済み・存在しない項目はnullを返す', () => {

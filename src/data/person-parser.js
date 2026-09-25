@@ -19,6 +19,15 @@ const INSTANCE_OF = 'P31';
 const DATE_OF_BIRTH = 'P569';
 // P570: 死亡年月日
 const DATE_OF_DEATH = 'P570';
+// P106: 職業
+const OCCUPATION = 'P106';
+// 教育上の観点からフィルタリングする職業。子供が使うサービスのため、これらの職業の人物は候補にしない
+const FILTERED_OCCUPATION_IDS = new Set([
+  'Q1079215', // AV女優
+  'Q8380347', // AV男優
+  'Q488111', // ポルノ俳優
+  'Q66382950', // ポルノ女優
+]);
 // 記録上の最長寿命(122歳)を目安に、これより新しい生年で没年がなければ存命とみなす
 const MAX_LIFESPAN_YEARS = 120;
 // ja の次に mul(全言語共通ラベル)を見るのは、名前を mul だけに登録している人物がいるため
@@ -102,6 +111,25 @@ function isHuman(claims) {
 }
 
 /**
+ * 教育上の観点からフィルタリングする職業を持つかどうかを返す。
+ * 生年と違い、職業は代表の1つを選ばず、非推奨ランク以外のすべての値を見る(人物は複数の職業を持つため)。
+ *
+ * @param {Object} claims
+ * @returns {boolean}
+ */
+function hasFilteredOccupation(claims) {
+  const occupationClaims = claims[OCCUPATION];
+  if (!Array.isArray(occupationClaims)) {
+    return false;
+  }
+  return occupationClaims.some(
+    (claim) =>
+      claim?.rank !== 'deprecated' &&
+      FILTERED_OCCUPATION_IDS.has(claim?.mainsnak?.datavalue?.value?.id),
+  );
+}
+
+/**
  * 生年を読み取る。値がない・不明な値・不正な値の場合はnull。
  *
  * @param {Object} claims
@@ -159,7 +187,8 @@ function pickText(valuesByLanguage, languages) {
  *
  * @param {Object} entity  wbgetentitiesのentities[id]
  * @param {number} currentYear  存命判定に使う現在の年
- * @returns {Person|null}  削除済み・人間でない・生年がない場合はnull
+ * @returns {Person|null}  削除済み・人間でない・教育上の観点からフィルタリングする職業を持つ・
+ *                         生年がない場合はnull
  */
 export function parsePerson(entity, currentYear) {
   if (entity === null || typeof entity !== 'object' || 'missing' in entity) {
@@ -169,7 +198,7 @@ export function parsePerson(entity, currentYear) {
   if (typeof id !== 'string' || claims === null || typeof claims !== 'object') {
     return null;
   }
-  if (!isHuman(claims)) {
+  if (!isHuman(claims) || hasFilteredOccupation(claims)) {
     return null;
   }
   const birth = parseBirth(claims);
