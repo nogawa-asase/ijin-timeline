@@ -7,13 +7,17 @@ ijin-timeline/
 ├── index.html                 # 唯一のページ(GitHub Pagesの入口)
 ├── .nojekyll                  # GitHub PagesのJekyll処理を無効化(ファイルをそのまま配信)
 ├── css/
-│   └── style.css              # 画面全体のスタイル
+│   ├── style.css              # 画面全体のスタイル(CSS変数、ページの配置、タイムライン、結果)
+│   └── person-input.css       # 人物の入力欄の部品のスタイル
 ├── src/                       # アプリケーションのJavaScript(ES Modules)
 │   ├── app.js                 # エントリーポイント(状態管理・全体の組み立て)
 │   ├── ui/                    # UIレイヤー
 │   │   ├── person-input.js
 │   │   ├── timeline-view.js
 │   │   ├── result-view.js
+│   │   ├── person-input/      # person-input.js を分割した内部モジュール
+│   │   │   ├── elements.js    # 入力欄・候補1件分の要素の作成
+│   │   │   └── messages.js    # 状態表示の文言と、0件のときの文言の選択
 │   │   └── timeline/          # timeline-view.js を分割した内部モジュール
 │   │       ├── person-row.js  # 人物1人分の行(名前・線・生没年)の描画
 │   │       └── svg.js         # SVG要素の作成・文字幅の計測
@@ -62,7 +66,9 @@ ijin-timeline/
 **役割**: スタイルシートの配置
 
 **配置ファイル**:
-- `style.css`: 全画面共通のスタイル。MVPでは1ファイルとする
+- `style.css`: 全画面共通のスタイル(`:root` のCSS変数、ページの配置、タイムライン、結果の文章)
+- `person-input.css`: 人物の入力欄(`person-input.js` が作る `.person-input` で始まるクラス)のスタイル。`style.css` が300行を超えたため分割した
+- `index.html` で `<link>` を使って `style.css` → 部品のCSSの順に読み込む(`@import` は読み込みが直列になるため使わない)
 
 **命名規則**:
 - kebab-case、拡張子 `.css`
@@ -87,6 +93,7 @@ ijin-timeline/
 - `timeline-view.js`: SVGタイムラインの描画
 - `result-view.js`: 比較結果の文章の表示
 - `timeline/`: `timeline-view.js` が300行を超えたため分割した内部モジュール(`person-row.js`、`svg.js`)。部品が大きくなったときは、部品名のサブディレクトリに分割する
+- `person-input/`: `person-input.js` が300行を超えたため分割した内部モジュール(`elements.js`、`messages.js`)
 
 **命名規則**:
 - 入力を受け付ける部品: `[対象]-input.js`
@@ -95,7 +102,7 @@ ijin-timeline/
 
 **依存関係**:
 - 依存可能: `src/logic/`、`src/data/`
-- 依存禁止: `src/app.js`、`src/ui/` 内の他のファイル(部品同士は `app.js` を通じて連携する)
+- 依存禁止: `src/app.js`、`src/ui/` 内の他のファイル(部品同士は `app.js` を通じて連携する)。ただし部品を分割したサブディレクトリ(`timeline/`、`person-input/`)は、その部品からのみ import してよい
 
 #### src/logic/
 
@@ -284,6 +291,8 @@ src/data/  →  src/logic/
 ### ファイルサイズの管理
 
 - 1ファイル300行以下を目安とする
+- `person-input.js` が300行を超えたため、要素の作成を `src/ui/person-input/elements.js`、状態表示の文言を `src/ui/person-input/messages.js` に分割した
+- `css/style.css` が300行を超えたため、入力欄の部品のスタイルを `css/person-input.css` に分割した。今後も部品ごとに `css/[部品名].css` へ切り出す
 - `timeline-view.js` が300行を超えたため、人物の行の描画を `src/ui/timeline/person-row.js`、SVGの補助関数を `src/ui/timeline/svg.js` に分割した。今後さらに大きくなった場合も、描画要素ごと(目盛り、重なり区間、出来事など)に `src/ui/timeline/` へ切り出す
 
 ## 特殊ディレクトリ
