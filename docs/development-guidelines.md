@@ -192,10 +192,10 @@ try {
 
 ### CSS
 
-- **ファイル**: MVPでは `css/style.css` の1ファイル(分割の基準は `docs/repository-structure.md`)
+- **ファイル**: 全画面共通の `css/style.css` と、部品ごとのファイル(`css/person-input.css`)。分割の基準は `docs/repository-structure.md`
 - **クラス名**: kebab-caseで、部品名を先頭に付ける(例: `.person-input`、`.person-input-clear`、`.timeline-axis`、`.result-text`)
 - **JavaScriptからの参照**: JavaScriptで要素を探すときもクラス名を使う。状態は `is-` で始まるクラスで表す(例: `.is-active`、`.is-loading`)
-- **色・サイズ**: ファイル先頭の `:root` にCSS変数としてまとめる(例: `--color-person-1: #0072B2;`)。人物の線の色は `docs/functional-design.md` のカラーコーディングに従う
+- **色・サイズ**: `css/style.css` の先頭の `:root` にCSS変数としてまとめ、部品のCSSからも参照する(例: `--color-person-1: #0072B2;`)。人物の線の色は `docs/functional-design.md` のカラーコーディングに従う
 - **画面幅の切り替え**: 切り替え点は600pxの1つだけとし、スマホ幅(600px未満)を基本に書いて `@media (min-width: 600px)` でPC向けを上書きする
 - **単位**: 文字サイズは `rem`、余白とタップ対象の大きさは `px`(タップ対象は44px以上)
 

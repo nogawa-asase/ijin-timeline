@@ -173,7 +173,7 @@ async function fetchEntities(ids, signal) {
  * @param {string} query  入力文字列(呼び出し側で前後の空白を除去し、100文字に切り詰め済み。1文字以上)
  * @param {number} currentYear  存命判定に使う現在の年
  * @param {AbortSignal} [signal]  前の検索を中断するためのシグナル
- * @returns {Promise<Candidate[]>}  最大7件。人間かつ生年を持つ人物のみ。検索結果の順を保つ
+ * @returns {Promise<Candidate[]>}  最大7件。人間かつ生年または没年を持つ人物のみ。検索結果の順を保つ
  * @throws {WikidataError}  通信失敗・タイムアウト・不正な応答のとき
  */
 export async function searchPeople(query, currentYear, signal) {

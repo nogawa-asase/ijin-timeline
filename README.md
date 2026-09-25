@@ -13,7 +13,7 @@ HTML / CSS / JavaScript(ES Modules)のみで作られた静的Webページです
 
 ```
 index.html        唯一のページ
-css/style.css     スタイル
+css/              スタイル(全体の style.css と部品ごとのファイル)
 src/app.js        エントリーポイント
 src/ui/           UIレイヤー(入力欄・タイムライン・結果の文章)
 src/logic/        ロジックレイヤー(年の計算・表記、比較)

@@ -15,6 +15,7 @@ function loadEntity(fileName) {
 
 const oda = loadEntity('Q171411-oda-nobunaga.json');
 const molybdenum = loadEntity('Q1053-molybdenum.json');
+const himiko = loadEntity('Q234451-himiko.json');
 
 /**
  * JSONを返すResponseを作る。
@@ -99,6 +100,19 @@ describe('searchPeople', () => {
       people.map((person) => person.id),
       ids.slice(0, 7),
     );
+  });
+
+  it('生年が不明で没年がある人物も候補に含める', async () => {
+    globalThis.fetch = stubFetch(
+      { search: [{ id: 'Q234451' }] },
+      { entities: { Q234451: himiko } },
+    );
+
+    const [candidate] = await searchPeople('卑弥呼', CURRENT_YEAR);
+
+    assert.equal(candidate.id, 'Q234451');
+    assert.equal(candidate.birth, null);
+    assert.deepEqual(candidate.death, { year: 248, precision: 'year' });
   });
 
   it('別名で一致した候補は一致した別名を持つ', async () => {

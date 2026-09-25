@@ -326,7 +326,7 @@ export function computeTicks(range) {}
 export function createPersonInput(container, options) {}
 ```
 
-**依存関係**: `wikidata-client.js`、`years.js`
+**依存関係**: `wikidata-client.js`、内部モジュール `src/ui/person-input/elements.js`(要素の作成。`years.js` を使う)・`src/ui/person-input/messages.js`(状態表示の文言)
 
 ### src/ui/timeline-view.js(UIレイヤー)
 

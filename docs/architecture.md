@@ -137,7 +137,7 @@ graph LR
 | 1回の検索での通信 | 2リクエスト | 候補検索1回+詳細取得1回(機能設計書のUC1・API設計) | 開発者ツールのネットワークタブで、1回の入力に対するWikidataへのリクエスト数を数える |
 
 ### 実現方法
-- ビルドなしでも読み込みが速いよう、JavaScriptファイルは機能設計書の9ファイル程度に留める
+- ビルドなしでも読み込みが速いよう、ファイルはレイヤーと画面の部品の単位に分け、細かく分けすぎない。分割はファイルの長さの目安(300行、`docs/repository-structure.md`)を超えたときに行う。ES Modulesの読み込みは `import` をたどって段階的に進むため、import の階層を深くしない
 - `wbgetentities` の `props` を `labels|descriptions|claims`、`languages` を `ja|mul|en` に絞り、不要なデータを取得しない
 - 古い検索は `AbortController` で中断し、無駄な通信と描画をしない
 

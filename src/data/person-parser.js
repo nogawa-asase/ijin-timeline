@@ -226,6 +226,7 @@ export function parsePerson(entity, currentYear) {
   const birth = parseBirth(claims);
   if (birth === null) {
     // 生年がわからなくても、没年があれば生年不明の人物として扱う(卑弥呼など)
+    // 没年も「不明な値」(somevalue)の場合は、タイムラインに線を引く手がかりがないため除外する
     const { death } = readDeath(claims);
     return death === null ? null : { ...names, birth: null, death, lifeStatus: 'deceased' };
   }

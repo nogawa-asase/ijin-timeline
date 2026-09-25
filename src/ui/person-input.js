@@ -1,5 +1,10 @@
 import { searchPeople, WikidataError } from '../data/wikidata-client.js';
-import { formatLifespan } from '../logic/years.js';
+import { createElements, createOptionElement } from './person-input/elements.js';
+import {
+  MESSAGE_FETCH_ERROR,
+  MESSAGE_SEARCHING,
+  notFoundMessageOf,
+} from './person-input/messages.js';
 
 /** @typedef {import('../data/person-parser.js').Person} Person */
 /** @typedef {import('../data/wikidata-client.js').Candidate} Candidate */
@@ -15,121 +20,6 @@ import { formatLifespan } from '../logic/years.js';
 
 const DEBOUNCE_MS = 300;
 const MAX_QUERY_LENGTH = 100;
-const MESSAGE_SEARCHING = '検索中…';
-const MESSAGE_NOT_FOUND = '該当する人物が見つかりませんでした';
-const MESSAGE_NOT_FOUND_SHORT_QUERY =
-  '該当する人物が見つかりませんでした。名前をもう少し長く入力してみてください';
-// この文字数以下の検索語は短い入力とみなす。「紫」のように人物以外の項目が検索結果の上位を占めやすいため
-const SHORT_QUERY_LENGTH = 2;
-const MESSAGE_FETCH_ERROR = 'データを取得できませんでした。時間をおいて試してください';
-
-/**
- * 入力欄を構成する要素を作る。
- *
- * @param {PersonInputOptions} options
- */
-function createElements(options) {
-  const { label, placeholder, slotNumber } = options;
-  const listboxId = `person-input-listbox-${slotNumber}`;
-
-  const rootEl = document.createElement('div');
-  rootEl.className = 'person-input';
-
-  const fieldEl = document.createElement('div');
-  fieldEl.className = 'person-input-field';
-
-  const swatchEl = document.createElement('span');
-  swatchEl.className = `person-input-swatch is-person-${slotNumber}`;
-  swatchEl.setAttribute('aria-hidden', 'true');
-
-  const inputEl = document.createElement('input');
-  inputEl.className = 'person-input-text';
-  inputEl.type = 'text';
-  inputEl.placeholder = placeholder;
-  inputEl.autocomplete = 'off';
-  inputEl.spellcheck = false;
-  inputEl.setAttribute('role', 'combobox');
-  inputEl.setAttribute('aria-label', `${label}の名前`);
-  inputEl.setAttribute('aria-autocomplete', 'list');
-  inputEl.setAttribute('aria-haspopup', 'listbox');
-  inputEl.setAttribute('aria-expanded', 'false');
-  inputEl.setAttribute('aria-controls', listboxId);
-
-  const clearEl = document.createElement('button');
-  clearEl.className = 'person-input-clear';
-  clearEl.type = 'button';
-  clearEl.textContent = '×';
-  clearEl.setAttribute('aria-label', `${label}をクリア`);
-  clearEl.hidden = true;
-
-  const listboxEl = document.createElement('ul');
-  listboxEl.className = 'person-input-listbox';
-  listboxEl.id = listboxId;
-  listboxEl.setAttribute('role', 'listbox');
-  listboxEl.setAttribute('aria-label', `${label}の候補`);
-  listboxEl.hidden = true;
-
-  const statusEl = document.createElement('p');
-  statusEl.className = 'person-input-status';
-  statusEl.setAttribute('aria-live', 'polite');
-
-  fieldEl.append(swatchEl, inputEl, clearEl);
-  rootEl.append(fieldEl, listboxEl, statusEl);
-  return { rootEl, inputEl, clearEl, listboxEl, statusEl };
-}
-
-/**
- * 候補が0件のときに表示するメッセージを返す。
- * 短い入力では、続けて入力すれば見つかる可能性があることを案内する。
- *
- * @param {string} query  前後の空白を除いた検索語
- * @returns {string}
- */
-function notFoundMessageOf(query) {
-  // サロゲートペアの文字も1文字として数える
-  return Array.from(query).length <= SHORT_QUERY_LENGTH
-    ? MESSAGE_NOT_FOUND_SHORT_QUERY
-    : MESSAGE_NOT_FOUND;
-}
-
-/**
- * 候補1件分の要素を作る。
- *
- * @param {Candidate} person
- * @param {string} optionId
- * @returns {HTMLLIElement}
- */
-function createOptionElement(person, optionId) {
-  const optionEl = document.createElement('li');
-  optionEl.className = 'person-input-option';
-  optionEl.id = optionId;
-  optionEl.setAttribute('role', 'option');
-  optionEl.setAttribute('aria-selected', 'false');
-
-  const nameEl = document.createElement('span');
-  nameEl.className = 'person-input-option-name';
-  nameEl.textContent = person.label;
-
-  const yearsEl = document.createElement('span');
-  yearsEl.className = 'person-input-option-years';
-  yearsEl.textContent = `(${formatLifespan(person.birth, person.death, person.lifeStatus)})`;
-
-  optionEl.append(nameEl, yearsEl);
-  if (person.matchedAlias !== null) {
-    // 名前に入力した文字を含まない候補が、なぜ出てきたのかを示す
-    const aliasEl = document.createElement('span');
-    aliasEl.className = 'person-input-option-alias';
-    aliasEl.textContent = `(別名: ${person.matchedAlias})`;
-    optionEl.append(aliasEl);
-  }
-  if (person.description !== '') {
-    const descriptionEl = document.createElement('span');
-    descriptionEl.className = 'person-input-option-description';
-    descriptionEl.textContent = person.description;
-    optionEl.append(descriptionEl);
-  }
-  return optionEl;
-}
 
 /**
  * 人物の入力欄(候補一覧つき)を1つ作る。
